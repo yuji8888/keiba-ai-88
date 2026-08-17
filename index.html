@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="theme-color" content="#111827">
-<title>三島優治専用 競馬AI Ver.4</title>
+<title>三島優治専用 競馬AI Ver.6</title>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:#f4f6f8;color:#17202a}
 header{background:#111827;color:#fff;padding:20px 16px;text-align:center}
@@ -14,18 +14,19 @@ main{max-width:900px;margin:auto;padding:16px}
 h2{font-size:18px;margin:0 0 12px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
 label{font-size:13px;color:#475569}input,select,textarea{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:10px;font-size:16px}
 button{width:100%;border:0;border-radius:12px;padding:14px;background:#dc2626;color:#fff;font-weight:700;font-size:17px;margin-top:10px}
-button.accent{background:#2563eb}.hint{font-size:12px;color:#64748b;line-height:1.6}
+button.accent{background:#2563eb}
 .table-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch}
 table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}th,td{padding:8px 5px;border-bottom:1px solid #e2e8f0;text-align:center}th{background:#f8fafc}
 .badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#e2e8f0;margin:3px;font-weight:700}
-.buy{background:#f8fafc;border-radius:12px;padding:12px;margin:8px 0;font-weight:700}
-.small{font-size:12px;color:#64748b}.warn{background:#fff7ed;border:1px solid #fed7aa;padding:10px;border-radius:10px;font-size:13px}
+.buy-section{margin:12px 0;padding:10px;background:#f8fafc;border-radius:10px;border-left:4px solid #2563eb}
+.buy-title{font-size:14px;font-weight:bold;color:#1e3a8a;margin-bottom:6px}
+.buy-item{font-size:14px;font-weight:bold;margin:3px 0;color:#334155}
 </style>
 </head>
 <body>
 <header>
-<h1>🐎 三島優治専用 競馬AI Ver.4</h1>
-<p>過去戦績自動解析 ＋ 最新AIスコアリング</p>
+<h1>🐎 三島優治専用 競馬AI Ver.6</h1>
+<p>3連複アルゴリズム計算最適化モデル</p>
 </header>
 <main>
 <div class="card">
@@ -36,8 +37,7 @@ table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}th,t
 2 ミクニサンビーム 2.4
 3 ビシャモンテン 39.5
 4 マロンシャンテリー 109.0
-5 アドマイヤエイジア 2.7
-6 リジン 30.9"></textarea>
+5 アドマイヤエイジア 2.7"></textarea>
 <button class="accent" onclick="parseTextAndApply()">⚡ データを解析してAIセット</button>
 </div>
 
@@ -56,15 +56,43 @@ table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}th,t
 <h2>③ AI予想結果</h2>
 <div id="labels"></div>
 <div id="ranking"></div>
-<h3 style="margin-top:15px">💰 おすすめ買い目</h3>
-<div id="winplace"></div>
-<div id="quinella"></div>
-<div id="exacta"></div>
-<div id="wide"></div>
-<div id="trioSafe"></div>
-<div id="trioUpset"></div>
-<div id="trifectaSafe"></div>
-<div id="trifectaUpset"></div>
+<h3 style="margin-top:15px">💰 AIおすすめ買い目一覧</h3>
+
+<div class="buy-section">
+<div class="buy-title">■ 単勝（1点）</div>
+<div id="winBuy"></div>
+</div>
+
+<div class="buy-section">
+<div class="buy-title">■ 複勝（2点）</div>
+<div id="placeBuy"></div>
+</div>
+
+<div class="buy-section">
+<div class="buy-title">■ ワイド（3点）</div>
+<div id="wideBuy"></div>
+</div>
+
+<div class="buy-section">
+<div class="buy-title">■ 馬連（3点）</div>
+<div id="quinellaBuy"></div>
+</div>
+
+<div class="buy-section">
+<div class="buy-title">■ 馬単（3点）</div>
+<div id="exactaBuy"></div>
+</div>
+
+<div class="buy-section">
+<div class="buy-title">■ 3連複（AI算出厳選5点）</div>
+<div id="trioBuy"></div>
+</div>
+
+<div class="buy-section">
+<div class="buy-title">■ 3連単（5点）</div>
+<div id="trifectaBuy"></div>
+</div>
+
 </div>
 </main>
 <script>
@@ -114,20 +142,83 @@ function score(h){ return (h.ability*0.4 + h.recent*0.3 + h.jockey*0.2 + h.value
 
 function analyze(){
  read();
- if(currentHorses.length < 2){ alert("データを読み込んでから押してください"); return; }
+ if(currentHorses.length < 5){ alert("正確な買い目計算のため、5頭以上のデータを読み込んでください"); return; }
  const r = [...currentHorses].sort((a,b)=>score(b)-score(a));
+ 
  document.getElementById("labels").innerHTML = r.slice(0,3).map((h,i)=>`<span class="badge">${['◎本命','○対抗','▲単穴'][i]} ${h.no}.${h.name}</span>`).join("");
  document.getElementById("ranking").innerHTML = "<h3 style='margin-top:10px'>AI能力順位</h3>" + r.map((h,i)=>`<p style='margin:4px 0;'>${i+1}位：<b>${h.no}.${h.name}</b> (オッズ:${h.odds} / スコア:${score(h).toFixed(1)})</p>`).join("");
  
- const top = r;
- document.getElementById("winplace").innerHTML = `<div class="buy">単勝：${top[0].no}.${top[0].name}</div>`;
- if(top[1]) document.getElementById("quinella").innerHTML = `<div class="buy">馬連：${top[0].no} - ${top[1].no}</div>`;
- if(top[2]) document.getElementById("wide").innerHTML = `<div class="buy">ワイド：${top[0].no} - ${top[1].no} / ${top[0].no} - ${top[2].no}</div>`;
- if(top[2]) document.getElementById("trioSafe").innerHTML = `<div class="buy">3連複：${top[0].no} - ${top[1].no} - ${top[2].no}</div>`;
- 
+ const [h1, h2, h3, h4, h5] = r;
+
+ // 単勝（1点）
+ document.getElementById("winBuy").innerHTML = `<div class="buy-item">① ${h1.no}.${h1.name}</div>`;
+
+ // 複勝（2点）
+ document.getElementById("placeBuy").innerHTML = `
+   <div class="buy-item">① ${h1.no}.${h1.name}</div>
+   <div class="buy-item">② ${h2.no}.${h2.name}</div>
+ `;
+
+ // ワイド（3点）
+ document.getElementById("wideBuy").innerHTML = `
+   <div class="buy-item">① ${h1.no} - ${h2.no}</div>
+   <div class="buy-item">② ${h1.no} - ${h3.no}</div>
+   <div class="buy-item">③ ${h2.no} - ${h3.no}</div>
+ `;
+
+ // 馬連（3点）
+ document.getElementById("quinellaBuy").innerHTML = `
+   <div class="buy-item">① ${h1.no} - ${h2.no}</div>
+   <div class="buy-item">② ${h1.no} - ${h3.no}</div>
+   <div class="buy-item">③ ${h2.no} - ${h3.no}</div>
+ `;
+
+ // 馬単（3点）
+ document.getElementById("exactaBuy").innerHTML = `
+   <div class="buy-item">① ${h1.no} → ${h2.no}</div>
+   <div class="buy-item">② ${h1.no} → ${h3.no}</div>
+   <div class="buy-item">③ ${h2.no} → ${h1.no}</div>
+ `;
+
+ // ★ 3連複（AI計算による厳選5点）
+ // 全ての3頭の組み合わせのスコアとオッズ期待値を総当り計算
+ let trioCombinations = [];
+ for(let i=0; i<r.length-2; i++){
+   for(let j=i+1; j<r.length-1; j++){
+     for(let k=j+1; k<r.length; k++){
+       const comboScore = (score(r[i]) + score(r[j]) + score(r[k])) / 3;
+       const expectedOdds = Math.round((r[i].odds + r[j].odds + r[k].odds) * 1.5);
+       // 本命要素とオッズの妙味度を掛け合わせたAI期待値ランク
+       const aiValue = comboScore * (1 + Math.log10(Math.max(1, expectedOdds)));
+       
+       trioCombinations.push({
+         nos: [r[i].no, r[j].no, r[k].no].sort((a,b)=>a-b),
+         names: [r[i].name, r[j].name, r[k].name],
+         aiValue: aiValue,
+         oddsEst: expectedOdds
+       });
+     }
+   }
+ }
+ // AI期待値が高い順にソートして上位5点を抽出
+ trioCombinations.sort((a,b) => b.aiValue - a.aiValue);
+ const topTrios = trioCombinations.slice(0, 5);
+
+ document.getElementById("trioBuy").innerHTML = topTrios.map((t, idx) => `
+   <div class="buy-item">${idx+1}. ${t.nos[0]} - ${t.nos[1]} - ${t.nos[2]} <span style="font-size:12px;color:#64748b;">(推定オッズ:約${t.oddsEst}倍)</span></div>
+ `).join("");
+
+ // 3連単（5点）
+ document.getElementById("trifectaBuy").innerHTML = `
+   <div class="buy-item">① ${h1.no} → ${h2.no} → ${h3.no}</div>
+   <div class="buy-item">② ${h1.no} → ${h3.no} → ${h2.no}</div>
+   <div class="buy-item">③ ${h1.no} → ${h2.no} → ${h4.no}</div>
+   <div class="buy-item">④ ${h1.no} → ${h3.no} → ${h4.no}</div>
+   <div class="buy-item">⑤ ${h2.no} → ${h1.no} → ${h3.no}</div>
+ `;
+
  document.getElementById("result").style.display="block";
 }
 </script>
 </body>
 </html>
-う
