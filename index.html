@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#111827">
-  <title>三島優治専用 競馬AI Ver.6</title>
+  <title>三島優治専用 競馬AI Ver.10</title>
   <style>
     * { box-sizing: border-box; }
     body {
@@ -62,24 +62,44 @@
     }
     .buy-title { font-size: 15px; font-weight: bold; margin-bottom: 8px; color: #1e3a8a; }
     .buy-item { font-size: 14px; font-weight: bold; margin-bottom: 6px; }
+    .buy-item.dark-horse { color: #d97706; }
     .setting-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
       gap: 8px;
       margin-bottom: 12px;
     }
+    .condition-box {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 12px;
+    }
   </style>
 </head>
 <body>
   <header>
-    <h1>🐴 三島優治専用 競馬AI Ver.6</h1>
-    <p>3連複アルゴリズム計算最適化モデル</p>
+    <h1>🐴 三島優治専用 競馬AI Ver.10</h1>
+    <p>騎手データ解析 ＆ AI自動指数連動モデル</p>
   </header>
 
   <main>
     <div class="card">
       <h2>出走馬リスト入力 (1行1頭)</h2>
-      <textarea id="horseList" rows="8" placeholder="馬名を1行ずつ貼り付けてください"></textarea>
+      <p style="font-size:12px; color:#6b7280; margin-top:0;">形式例: <code>馬番 馬名 / オッズ / 騎手名</code> （スラッシュ区切りでOK）</p>
+      <textarea id="horseList" rows="8" placeholder="1 オニャンコポン / 134.6倍 / 菅原明&#10;2 イガッチ / 44.3倍 / ルメール&#10;3 ピンクジン / 114.3倍 / 武豊"></textarea>
+
+      <!-- 馬場状態選択 -->
+      <div class="condition-box">
+        <label style="margin-top:0; font-weight:bold; color:#1e40af;">🌧️ 馬場状態を選択</label>
+        <select id="trackCondition">
+          <option value="good" selected>良（標準展開）</option>
+          <option value="yielding">稍重（荒れやすさ：小）</option>
+          <option value="soft">重（荒れやすさ：中 / パワー重視）</option>
+          <option value="bad">不良（荒れやすさ：大 / 波乱注意）</option>
+        </select>
+      </div>
       
       <label>▼ 各券種の購入点数設定</label>
       <div class="setting-grid">
@@ -93,10 +113,9 @@
         <div><label>3連単</label><select id="trifectaCnt"><option value="5">5点</option><option value="10" selected>10点</option></select></div>
       </div>
 
-      <button class="accent" onclick="calculateAI()">AI予想を計算実行</button>
+      <button class="accent" onclick="calculateAI()">騎手・馬場補正を加えてAI計算実行</button>
     </div>
 
-    <!-- 出走表カード -->
     <div class="card" id="tableCard" style="display:none;">
       <h2>出走馬AI分析一覧</h2>
       <div class="table-wrapper">
@@ -105,7 +124,9 @@
             <tr>
               <th>馬番</th>
               <th>馬名</th>
-              <th>AIスコア</th>
+              <th>騎手</th>
+              <th>AI算出指数</th>
+              <th>総合評価点</th>
               <th>想定オッズ</th>
             </tr>
           </thead>
@@ -114,7 +135,6 @@
       </div>
     </div>
 
-    <!-- 買い目結果カード -->
     <div class="card" id="resultCard" style="display:none;">
       <h2>全8券種 買い目結果</h2>
 
@@ -130,6 +150,21 @@
   </main>
 
   <script>
+    // 主要騎手のAI評価ボーナスリスト
+    const jockeyBonusMap = {
+      "ルメール": 10, "川田": 9, "武豊": 8, "横山武": 7, "戸崎": 7,
+      "松山": 6, "坂井": 6, "岩田望": 5, "鮫島駿": 5, "菅原明": 5,
+      "デムーロ": 6, "モレイラ": 10, "レーン": 10
+    };
+
+    function getJockeyBonus(jockeyName) {
+      if (!jockeyName) return 0;
+      for (let key in jockeyBonusMap) {
+        if (jockeyName.includes(key)) return jockeyBonusMap[key];
+      }
+      return 3; // その他の騎手の標準加点
+    }
+
     function calculateAI() {
       const text = document.getElementById("horseList").value.trim();
       if (!text) return alert("馬名を入力（貼り付け）してください。");
@@ -137,113 +172,171 @@
       const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
       if (lines.length < 3) return alert("3頭以上の馬名を入力してください。");
 
-      // 馬データの生成（馬番・枠番・AIスコア算出）
-      const r = lines.map((name, index) => {
-        const no = index + 1;
-        const frame = Math.ceil(no / (lines.length / 8 || 2));
+      const trackCond = document.getElementById("trackCondition").value;
+      let trackHoleFactor = 1.0;
+      if (trackCond === "yielding") trackHoleFactor = 1.2;
+      if (trackCond === "soft") trackHoleFactor = 1.5;
+      if (trackCond === "bad") trackHoleFactor = 1.8;
+
+      // 馬データ作成 ＆ 騎手・AI指数自動算出
+      const r = lines.map((line, index) => {
+        const parts = line.split("/");
+        const namePart = parts[0].replace(/^[0-9]+\s*/, "").trim();
+        const odds = parts[1] ? parseFloat(parts[1]) : (index + 1) * 3.5;
+        const jockey = parts[2] ? parts[2].trim() : "未設定";
+
+        // 騎手ボーナス取得
+        const jBonus = getJockeyBonus(jockey);
+
+        // 【AI指数自動算出アルゴリズム（騎手連動）】
+        let baseRankScore = Math.max(15, 90 - (index * 4.5)); 
+        let oddsValueScore = Math.min(10, Math.max(0, 25 / (odds + 1))); 
+        let autoAiIndex = Math.round(baseRankScore + oddsValueScore + jBonus);
+
+        // 馬場補正後の総合スコア
+        const adjustedScore = autoAiIndex + (trackHoleFactor > 1.0 ? (index * trackHoleFactor * 0.4) : 0);
+
         return {
-          no: no,
-          frame: Math.min(8, Math.max(1, frame)),
-          name: name,
-          score: Math.max(10, 100 - index * 5),
-          odds: Math.round((index + 1) * 3.5 * 10) / 10
+          no: index + 1,
+          frame: Math.min(8, Math.max(1, Math.ceil((index + 1) / (lines.length / 8 || 2)))),
+          name: namePart,
+          jockey: jockey,
+          aiIndex: autoAiIndex,
+          baseScore: adjustedScore,
+          odds: odds
         };
       });
 
-      // 1. 出走表テーブルの描画
+      // 出走表の描画
       let tableHTML = "";
       r.forEach(m => {
-        tableHTML += `<tr><td>${m.no}</td><td><b>${m.name}</b></td><td>${m.score} pt</td><td>${m.odds} 倍</td></tr>`;
+        tableHTML += `<tr><td>${m.no}</td><td><b>${m.name}</b></td><td>${m.jockey}</td><td><b style="color:#2563eb;">${m.aiIndex} pt</b></td><td>${m.baseScore.toFixed(1)} pt</td><td>${m.odds} 倍</td></tr>`;
       });
       document.getElementById("horseTableBody").innerHTML = tableHTML;
       document.getElementById("tableCard").style.display = "block";
 
-      // 2. 件数取得
       const getLimit = id => parseInt(document.getElementById(id).value);
 
-      // 単勝
-      let wins = [...r].sort((a,b) => b.score - a.score).slice(0, getLimit("winCnt"));
+      function blendBuyList(solidList, holeList, limit) {
+        let result = [];
+        let solidCount = limit > 3 ? limit - 2 : limit - 1;
+        if (solidCount < 1) solidCount = 1;
+
+        result = solidList.slice(0, solidCount);
+
+        for(let item of holeList) {
+          if (result.length >= limit) break;
+          const isExist = result.some(r => JSON.stringify(r.key) === JSON.stringify(item.key));
+          if (!isExist) {
+            item.isHole = true;
+            result.push(item);
+          }
+        }
+        return result;
+      }
+
+      // 1. 単勝
+      let winSolid = [...r].sort((a,b) => b.baseScore - a.baseScore).map(m => ({ text: `${m.no} (${m.name} / ${m.jockey})`, key: m.no }));
+      let winHole = [...r].sort((a,b) => (b.odds * b.baseScore * trackHoleFactor) - (a.odds * a.baseScore)).map(m => ({ text: `${m.no} (${m.name} / ${m.jockey}) 🔥[AI穴推奨]`, key: m.no }));
+      let wins = blendBuyList(winSolid, winHole, getLimit("winCnt"));
       document.getElementById("winTitle").innerText = `■ 単勝 (${wins.length}点)`;
-      document.getElementById("winBuy").innerHTML = wins.map((m,i)=>`<div class="buy-item">${i+1}. ${m.no} (${m.name})</div>`).join("");
+      document.getElementById("winBuy").innerHTML = wins.map((m,i)=>`<div class="buy-item ${m.isHole?'dark-horse':''}">${i+1}. ${m.text}</div>`).join("");
 
-      // 複勝
-      let places = [...r].sort((a,b) => b.score - a.score).slice(0, getLimit("placeCnt"));
+      // 2. 複勝
+      let places = blendBuyList(winSolid, winHole, getLimit("placeCnt"));
       document.getElementById("placeTitle").innerText = `■ 複勝 (${places.length}点)`;
-      document.getElementById("placeBuy").innerHTML = places.map((m,i)=>`<div class="buy-item">${i+1}. ${m.no} (${m.name})</div>`).join("");
+      document.getElementById("placeBuy").innerHTML = places.map((m,i)=>`<div class="buy-item ${m.isHole?'dark-horse':''}">${i+1}. ${m.text}</div>`).join("");
 
-      // 枠連
-      let brackets = [];
+      // 3. 馬連
+      let qSolid = [], qHole = [];
+      for(let i=0; i<r.length-1; i++){
+        for(let j=i+1; j<r.length; j++){
+          const key = [r[i].no, r[j].no].sort().join("-");
+          const nameStr = `${r[i].no} (${r[i].name}) - ${r[j].no} (${r[j].name})`;
+          qSolid.push({ key: key, text: nameStr, score: r[i].baseScore + r[j].baseScore });
+          qHole.push({ key: key, text: nameStr + " 🔥[AI穴推奨]", score: (r[i].baseScore + r[j].baseScore) * Math.log10(r[i].odds + r[j].odds) * trackHoleFactor });
+        }
+      }
+      qSolid.sort((a,b) => b.score - a.score);
+      qHole.sort((a,b) => b.score - a.score);
+      let quinellas = blendBuyList(qSolid, qHole, getLimit("quinellaCnt"));
+      document.getElementById("quinellaTitle").innerText = `■ 馬連 (${quinellas.length}点)`;
+      document.getElementById("quinellaBuy").innerHTML = quinellas.map((m,i)=>`<div class="buy-item ${m.isHole?'dark-horse':''}">${i+1}. ${m.text}</div>`).join("");
+
+      // 4. ワイド
+      let wides = blendBuyList(qSolid, qHole, getLimit("wideCnt"));
+      document.getElementById("wideTitle").innerText = `■ ワイド (${wides.length}点)`;
+      document.getElementById("wideBuy").innerHTML = wides.map((m,i)=>`<div class="buy-item ${m.isHole?'dark-horse':''}">${i+1}. ${m.text}</div>`).join("");
+
+      // 5. 枠連
+      let bSolid = [];
       for(let i=0; i<r.length-1; i++){
         for(let j=i+1; j<r.length; j++){
           if(r[i].frame !== r[j].frame){
-            brackets.push({ f1: r[i].frame, f2: r[j].frame, score: r[i].score + r[j].score });
+            bSolid.push({ key: `${r[i].frame}-${r[j].frame}`, text: `${r[i].frame} - ${r[j].frame} 枠`, score: r[i].baseScore + r[j].baseScore });
           }
         }
       }
-      brackets.sort((a,b) => b.score - a.score);
-      let topBrackets = brackets.slice(0, getLimit("bracketCnt"));
+      bSolid.sort((a,b) => b.score - a.score);
+      let topBrackets = bSolid.slice(0, getLimit("bracketCnt"));
       document.getElementById("bracketTitle").innerText = `■ 枠連 (${topBrackets.length}点)`;
-      document.getElementById("bracketBuy").innerHTML = topBrackets.map((m,i)=>`<div class="buy-item">${i+1}. ${m.f1} - ${m.f2} 枠</div>`).join("");
+      document.getElementById("bracketBuy").innerHTML = topBrackets.map((m,i)=>`<div class="buy-item">${i+1}. ${m.text}</div>`).join("");
 
-      // 馬連
-      let quinellas = [];
-      for(let i=0; i<r.length-1; i++){
-        for(let j=i+1; j<r.length; j++){
-          quinellas.push({ nos: [r[i].no, r[j].no], names: [r[i].name, r[j].name], score: r[i].score + r[j].score });
-        }
-      }
-      quinellas.sort((a,b) => b.score - a.score);
-      let topQuinellas = quinellas.slice(0, getLimit("quinellaCnt"));
-      document.getElementById("quinellaTitle").innerText = `■ 馬連 (${topQuinellas.length}点)`;
-      document.getElementById("quinellaBuy").innerHTML = topQuinellas.map((m,i)=>`<div class="buy-item">${i+1}. ${m.nos.join(" - ")} (${m.names.join(", ")})</div>`).join("");
-
-      // ワイド
-      let wides = [...quinellas];
-      let topWides = wides.slice(0, getLimit("wideCnt"));
-      document.getElementById("wideTitle").innerText = `■ ワイド (${topWides.length}点)`;
-      document.getElementById("wideBuy").innerHTML = topWides.map((m,i)=>`<div class="buy-item">${i+1}. ${m.nos.join(" - ")} (${m.names.join(", ")})</div>`).join("");
-
-      // 馬単
-      let exactas = [];
+      // 6. 馬単
+      let exSolid = [], exHole = [];
       for(let i=0; i<r.length; i++){
         for(let j=0; j<r.length; j++){
           if(i === j) continue;
-          exactas.push({ no1: r[i].no, name1: r[i].name, no2: r[j].no, name2: r[j].name, score: (r[i].score * 1.3) + r[j].score });
+          const key = `${r[i].no}->${r[j].no}`;
+          const nameStr = `${r[i].no} (${r[i].name}) → ${r[j].no} (${r[j].name})`;
+          exSolid.push({ key: key, text: nameStr, score: (r[i].baseScore * 1.5) + r[j].baseScore });
+          exHole.push({ key: key, text: nameStr + " 🔥[AI穴推奨]", score: ((r[i].baseScore * 1.5) + r[j].baseScore) * Math.log10(r[j].odds + 1) * trackHoleFactor });
         }
       }
-      exactas.sort((a,b) => b.score - a.score);
-      let topExactas = exactas.slice(0, getLimit("exactaCnt"));
-      document.getElementById("exactaTitle").innerText = `■ 馬単 (${topExactas.length}点)`;
-      document.getElementById("exactaBuy").innerHTML = topExactas.map((m,i)=>`<div class="buy-item">${i+1}. ${m.no1} (${m.name1}) → ${m.no2} (${m.name2})</div>`).join("");
+      exSolid.sort((a,b) => b.score - a.score);
+      exHole.sort((a,b) => b.score - a.score);
+      let exactas = blendBuyList(exSolid, exHole, getLimit("exactaCnt"));
+      document.getElementById("exactaTitle").innerText = `■ 馬単 (${exactas.length}点)`;
+      document.getElementById("exactaBuy").innerHTML = exactas.map((m,i)=>`<div class="buy-item ${m.isHole?'dark-horse':''}">${i+1}. ${m.text}</div>`).join("");
 
-      // 3連複
-      let trios = [];
+      // 7. 3連複
+      let tSolid = [], tHole = [];
       for(let i=0; i<r.length-2; i++){
         for(let j=i+1; j<r.length-1; j++){
           for(let k=j+1; k<r.length; k++){
-            trios.push({ nos: [r[i].no, r[j].no, r[k].no], names: [r[i].name, r[j].name, r[k].name], score: r[i].score + r[j].score + r[k].score });
+            const key = [r[i].no, r[j].no, r[k].no].sort().join("-");
+            const nameStr = `${r[i].no}-${r[j].no}-${r[k].no} (${r[i].name}, ${r[j].name}, ${r[k].name})`;
+            const baseSum = r[i].baseScore + r[j].baseScore + r[k].baseScore;
+            tSolid.push({ key: key, text: nameStr, score: baseSum });
+            tHole.push({ key: key, text: nameStr + " 🔥[AI穴推奨]", score: baseSum * Math.log10(r[i].odds + r[j].odds + r[k].odds) * trackHoleFactor });
           }
         }
       }
-      trios.sort((a,b) => b.score - a.score);
-      let topTrios = trios.slice(0, getLimit("trioCnt"));
-      document.getElementById("trioTitle").innerText = `★ 3連複 (${topTrios.length}点)`;
-      document.getElementById("trioBuy").innerHTML = topTrios.map((m,i)=>`<div class="buy-item">${i+1}. ${m.nos.join(" - ")} (${m.names.join(", ")})</div>`).join("");
+      tSolid.sort((a,b) => b.score - a.score);
+      tHole.sort((a,b) => b.score - a.score);
+      let trios = blendBuyList(tSolid, tHole, getLimit("trioCnt"));
+      document.getElementById("trioTitle").innerText = `★ 3連複 (${trios.length}点)`;
+      document.getElementById("trioBuy").innerHTML = trios.map((m,i)=>`<div class="buy-item ${m.isHole?'dark-horse':''}">${i+1}. ${m.text}</div>`).join("");
 
-      // 3連単
-      let trifectas = [];
+      // 8. 3連単
+      let triFectSolid = [], triFectHole = [];
       for(let i=0; i<r.length; i++){
         for(let j=0; j<r.length; j++){
           for(let k=0; k<r.length; k++){
             if(i === j || j === k || i === k) continue;
-            trifectas.push({ no1: r[i].no, name1: r[i].name, no2: r[j].no, name2: r[j].name, no3: r[k].no, name3: r[k].name, score: (r[i].score * 1.5) + (r[j].score * 1.2) + r[k].score });
+            const key = `${r[i].no}->${r[j].no}->${r[k].no}`;
+            const nameStr = `${r[i].no} → ${r[j].no} → ${r[k].no} (${r[i].name}, ${r[j].name}, ${r[k].name})`;
+            const baseSum = (r[i].baseScore * 2.0) + (r[j].baseScore * 1.3) + r[k].baseScore;
+            triFectSolid.push({ key: key, text: nameStr, score: baseSum });
+            triFectHole.push({ key: key, text: nameStr + " 🔥[AI穴推奨]", score: baseSum * Math.log10(r[j].odds + r[k].odds + 1) * trackHoleFactor });
           }
         }
       }
-      trifectas.sort((a,b) => b.score - a.score);
-      let topTrifectas = trifectas.slice(0, getLimit("trifectaCnt"));
-      document.getElementById("trifectaTitle").innerText = `★ 3連単 (${topTrifectas.length}点)`;
-      document.getElementById("trifectaBuy").innerHTML = topTrifectas.map((m,i)=>`<div class="buy-item">${i+1}. ${m.no1} (${m.name1}) → ${m.no2} (${m.name2}) → ${m.no3} (${m.name3})</div>`).join("");
+      triFectSolid.sort((a,b) => b.score - a.score);
+      triFectHole.sort((a,b) => b.score - a.score);
+      let trifectas = blendBuyList(triFectSolid, triFectHole, getLimit("trifectaCnt"));
+      document.getElementById("trifectaTitle").innerText = `★ 3連単 (${trifectas.length}点)`;
+      document.getElementById("trifectaBuy").innerHTML = trifectas.map((m,i)=>`<div class="buy-item ${m.isHole?'dark-horse':''}">${i+1}. ${m.text}</div>`).join("");
 
       document.getElementById("resultCard").style.display = "block";
     }
