@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#111827">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="三島競馬AI">
+<link rel="manifest" href="manifest.json">
+<title>三島優治専用 競馬AI Ver.2</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,"Noto Sans JP",sans-serif;background:#f4f6f8;color:#17202a}
+header{background:#111827;color:#fff;padding:20px 16px;text-align:center}
+header h1{margin:0;font-size:22px}header p{margin:6px 0 0;color:#cbd5e1;font-size:13px}
+main{max-width:900px;margin:auto;padding:16px}
+.card{background:#fff;border-radius:16px;padding:16px;margin:12px 0;box-shadow:0 3px 14px #00000012}
+h2{font-size:18px;margin:0 0 12px}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+label{font-size:13px;color:#475569}input,select{width:100%;padding:11px;border:1px solid #cbd5e1;border-radius:10px;font-size:16px}
+button{width:100%;border:0;border-radius:12px;padding:14px;background:#dc2626;color:#fff;font-weight:700;font-size:17px;margin-top:10px}
+button.secondary{background:#334155}.hint{font-size:12px;color:#64748b;line-height:1.6}
+.table-wrapper{overflow-x:auto;-webkit-overflow-scrolling:touch}
+table{width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap}th,td{padding:8px 5px;border-bottom:1px solid #e2e8f0;text-align:center}th{background:#f8fafc}
+.badge{display:inline-block;padding:5px 9px;border-radius:999px;background:#e2e8f0;margin:3px;font-weight:700}
+.buy{background:#f8fafc;border-radius:12px;padding:12px;margin:8px 0;font-weight:700}
+.small{font-size:12px;color:#64748b}.warn{background:#fff7ed;border:1px solid #fed7aa;padding:10px;border-radius:10px;font-size:13px}
+@media(max-width:600px){.grid{grid-template-columns:1fr}main{padding:10px}}
+</style>
+</head>
+<body>
+<header>
+<h1>🐎 三島優治専用 競馬AI Ver.2</h1>
+<p>全競馬場対応 ＋ ◎○▲☆⚠ ＋ 3連複・3連単AI分析</p>
+</header>
+<main>
+<div class="card">
+<h2>① レースを選ぶ</h2>
+<div class="grid">
+<div>
+<label>開催区分</label>
+<select id="category" onchange="updateVenues()">
+  <option value="central">🏇 中央競馬（JRA）</option>
+  <option value="local">🏇 地方競馬（NAR）</option>
+</select>
+</div>
+<div>
+<label>競馬場</label>
+<select id="venue" onchange="updateRaces()"></select>
+</div>
+<div>
+<label>レース</label>
+<select id="race" onchange="generateRaceData()"></select>
+</div>
+<div>
+<label>予算（円）</label>
+<input id="budget" type="number" value="5000" min="100">
+</div>
+</div>
+<p class="hint">中央・地方の全24競馬場に対応。レースを選択すると各コースに応じた出走馬データ（16頭）が自動生成されます。</p>
+<button id="installBtn" class="secondary" onclick="installApp()" style="display:none">📱 ホーム画面に追加する</button>
+</div>
+
+<div class="card">
+<h2>② 出走馬データ（全16頭）</h2>
+<div class="table-wrapper">
+<table>
+<thead><tr><th>馬番</th><th>馬名</th><th>能力</th><th>近走</th><th>コース</th><th>ペース</th><th>馬場</th><th>騎手</th><th>枠</th><th>馬体重</th><th>速度</th><th>妙味</th><th>オッズ</th></tr></thead>
+<tbody id="horses"></tbody>
+</table>
+</div>
+<button onclick="analyze()">🔥 AI分析する</button>
+</div>
+
+<div id="result" class="card" style="display:none">
+<h2>③ AI予想</h2>
+<div id="labels"></div>
+<h2 style="margin-top:18px">📊 AIランキング</h2>
+<div id="ranking"></div>
+<h2 style="margin-top:18px">💰 一通りの買い目</h2>
+<div id="winplace"></div>
+<h2 style="margin-top:18px">🔗 馬連</h2>
+<div id="quinella"></div>
+<h2 style="margin-top:18px">↔️ 馬単</h2>
+<div id="exacta"></div>
+<h2 style="margin-top:18px">〰️ ワイド</h2>
+<div id="wide"></div>
+<h2 style="margin-top:18px">🎯 3連複（堅め）</h2>
+<div id="trioSafe"></div>
+<h2 style="margin-top:18px">🔥 3連複（荒れ狙い）</h2>
+<div id="trioUpset"></div>
+<h2 style="margin-top:18px">🔒 3連単（堅め）</h2>
+<div id="trifectaSafe"></div>
+<h2 style="margin-top:18px">💥 3連単（荒れ狙い）</h2>
+<div id="trifectaUpset"></div>
+<div class="warn">※分析結果はAIシミュレーションに基づく指数計算です。</div>
+</div>
+</main>
+<script>
+
+const VENUES={
+ central:["札幌","函館","福島","新潟","東京","中山","中京","京都","阪神","小倉"],
+ local:["門別","盛岡","水沢","浦和","船橋","大井","川崎","金沢","笠松","名古屋","園田","姫路","高知","佐賀"]
+};
+const RACES=["1R","2R","3R","4R","5R","6R","7R","8R","9R","10R","11R","12R"];
+
+// 馬名生成用パーツ
+const PREFIXES=["トウカイ","メジロ","シンボリ","ディープ","キング","ゴールド","サイレンス","アグネス","テイエム","スペシャル","ダイワ","ウオッカ","ロード","オルフェ","キタサン"];
+const SUFFIXES=["オー","キャップ","インパクト","インパクト","シップ","スズカ","タキオン","オペラ","ウィーク","スカーレット","カナロア","ーヴル","ブラック","エース","ヒーロー"];
+
+let currentHorses = [];
+
+function updateVenues(){
+ const cat=document.getElementById("category").value;
+ document.getElementById("venue").innerHTML=VENUES[cat].map(v=>`<option>${v}</option>`).join("");
+ updateRaces();
+}
+function updateRaces(){
+ const v=document.getElementById("venue").value;
+ document.getElementById("race").innerHTML=RACES.map(r=>`<option value="${r}">${v} ${r}</option>`).join("");
+ generateRaceData();
+}
+
+// 競馬場・レース毎に出走馬16頭のデータを自動生成
+function generateRaceData(){
+ const venue = document.getElementById("venue").value;
+ const race = document.getElementById("race").value;
+ const raceSeed = (venue.charCodeAt(0) || 0) + parseInt(race);
+ 
+ currentHorses = [];
+ for(let i=1; i<=16; i++){
+   const name = PREFIXES[(i + raceSeed) % PREFIXES.length] + SUFFIXES[(i * 3 + raceSeed) % SUFFIXES.length];
+   const baseScore = 95 - (i * 2) + ((raceSeed * i) % 7);
+   currentHorses.push({
+     no: i,
+     name: name,
+     ability: Math.min(99, Math.max(50, baseScore)),
+     recent: Math.min(99, Math.max(50, baseScore - (i % 4) * 3 + 5)),
+     course: Math.min(99, Math.max(50, baseScore - (i % 3) * 4 + 4)),
+     pace: Math.min(99, Math.max(50, baseScore - (i % 5) * 2 + 3)),
+     going: Math.min(99, Math.max(50, 80 - (i % 4) * 5)),
+     jockey: Math.min(99, Math.max(50, 90 - (i % 7) * 4)),
+     draw: Math.min(99, Math.max(50, 75 + (i % 8) * 3)),
+     weight: Math.min(99, Math.max(50, 80 - (i % 3) * 2)),
+     speed: Math.min(99, Math.max(50, baseScore - (i % 6) * 3 + 6)),
+     value: Math.min(99, Math.max(50, 60 + (i % 9) * 4)),
+     odds: (1.8 + (i * 1.5) + ((raceSeed % 5) * 0.4)).toFixed(1)
+   });
+ }
+ render();
+}
+
+let deferredPrompt=null;
+window.addEventListener("beforeinstallprompt",(e)=>{
+ e.preventDefault();
+ deferredPrompt=e;
+ const b=document.getElementById("installBtn");
+ if(b) b.style.display="block";
+});
+async function installApp(){
+ if(!deferredPrompt){
+   alert("このファイルを直接開いている状態では登録できません。まずWeb上(HTTPS)に公開すると、ホーム画面への追加ボタンが使えるようになります。");
+   return;
+ }
+ deferredPrompt.prompt();
+ await deferredPrompt.userChoice;
+ deferredPrompt=null;
+ document.getElementById("installBtn").style.display="none";
+}
+
+const W={ability:.25,recent:.10,course:.15,pace:.15,going:.10,jockey:.10,draw:.05,weight:.05,speed:.10,value:.05};
+
+function render(){
+ const tb=document.getElementById("horses");
+ tb.innerHTML=currentHorses.map((h,i)=>`<tr>
+<td>${h.no}</td><td style="min-width:120px">${h.name}</td>
+${["ability","recent","course","pace","going","jockey","draw","weight","speed","value"].map(k=>`<td><input data-i="${i}" data-k="${k}" value="${h[k]}" type="number" min="0" max="100" style="width:55px;padding:4px"></td>`).join("")}
+<td><input data-i="${i}" data-k="odds" value="${h.odds}" type="number" step=".1" min="0" style="width:55px;padding:4px"></td></tr>`).join("");
+}
+
+function read(){
+ document.querySelectorAll("[data-i]").forEach(x=>{const i=+x.dataset.i,k=x.dataset.k;currentHorses[i][k]=parseFloat(x.value)||0});
+}
+
+function score(h){return +(h.ability*W.ability+h.recent*W.recent+h.course*W.course+h.pace*W.pace+h.going*W.going+h.jockey*W.jockey+h.draw*W.draw+h.weight*W.weight+h.speed*W.speed+h.value*W.value).toFixed(2)}
+
+function combinations(arr,k){
+ const out=[];
+ function rec(start,cur){
+   if(cur.length===k){out.push(cur.slice());return;}
+   for(let i=start;i<arr.length;i++){cur.push(arr[i]);rec(i+1,cur);cur.pop();}
+ }
+ rec(0,[]); return out;
+}
+
+function analyze(){
+ read(); const r=[...currentHorses].sort((a,b)=>score(b)-score(a));
+ const labels=[["◎",r[0]],["○",r[1]],["▲",r[2]]];
+ const hole=r.slice(3).sort((a,b)=>b.value-a.value)[0]; if(hole) labels.push(["☆",hole]);
+ const popular=[...r].sort((a,b)=>a.odds-b.odds).slice(0,3).find(h=>r.indexOf(h)>=Math.max(4,Math.floor(r.length/2)));
+ if(popular) labels.push(["⚠",popular]);
+ 
+ document.getElementById("labels").innerHTML=labels.map(([l,h])=>`<span class="badge">${l} ${h.no} ${h.name} <span class="small">${score(h)}</span></span>`).join("");
+ document.getElementById("ranking").innerHTML="<div class='table-wrapper'><table><tr><th>順位</th><th>馬番</th><th>馬名</th><th>AI指数</th></tr>"+r.map((h,i)=>`<tr><td>${i+1}</td><td>${h.no}</td><td>${h.name}</td><td><b>${score(h)}</b></td></tr>`).join("")+"</table></div>";
+ 
+ const top=r.slice(0,4),mid=r.slice(4,8),long=r.slice(8,12);
+ const budget=+document.getElementById("budget").value||5000;
+ const units=Math.max(1,Math.floor(budget/100));
+ const money=(ratio,n)=>Math.max(100,Math.floor((units*ratio/n)))*100;
+ const fmt=h=>`${h.no} ${h.name}`;
+
+ document.getElementById("winplace").innerHTML=
+   `<div class="buy">単勝：${fmt(top[0])} <span class="small">¥${money(.25,1)}</span></div>`+
+   `<div class="buy">複勝：${fmt(top[0])} <span class="small">¥${money(.15,1)}</span></div>`+
+   `<div class="buy">複勝：${fmt(top[1])} <span class="small">¥${money(.10,1)}</span></div>`;
+
+ const quinella=combinations(top.slice(0,4),2);
+ const exacta=[];
+ for(const a of top.slice(0,3)) for(const b of top.slice(0,3)) if(a!==b) exacta.push([a,b]);
+ const wide=[...combinations(top.slice(0,3),2),[top[0],long[0]],[top[0],long[1]]];
+
+ document.getElementById("quinella").innerHTML=quinella.slice(0,6).map((x,i)=>
+   `<div class="buy">${i+1}. ${x.map(h=>h.no).join(" - ")} <span class="small">¥${money(.10,Math.min(6,quinella.length))}</span></div>`).join("");
+ document.getElementById("exacta").innerHTML=exacta.slice(0,6).map((x,i)=>
+   `<div class="buy">${i+1}. ${x.map(h=>h.no).join(" → ")} <span class="small">¥${money(.10,Math.min(6,exacta.length))}</span></div>`).join("");
+ document.getElementById("wide").innerHTML=wide.slice(0,5).map((x,i)=>
+   `<div class="buy">${i+1}. ${x.map(h=>h.no).join(" - ")} <span class="small">¥${money(.10,Math.min(5,wide.length))}</span></div>`).join("");
+
+ const trioSafe=[
+   [top[0],top[1],top[2]],
+   [top[0],top[1],top[3]],
+   [top[0],top[2],top[3]]
+ ];
+ const trioUpset=[
+   [top[0],top[2],mid[0]],
+   [top[0],top[3],mid[1]||mid[0]],
+   [top[1],top[2],mid[0]],
+   [top[0],mid[0],long[0]],
+   [top[1],mid[0],long[0]]
+ ];
+
+ const trifectaSafe=[
+   [top[0],top[1],top[2]],
+   [top[0],top[2],top[1]],
+   [top[1],top[0],top[2]],
+   [top[0],top[1],top[3]]
+ ];
+ const trifectaUpset=[
+   [top[0],mid[0],top[1]],
+   [top[0],top[2],mid[0]],
+   [mid[0],top[0],top[1]],
+   [long[0],top[0],top[1]],
+   [top[1],long[0],top[0]]
+ ];
+
+ document.getElementById("trioSafe").innerHTML=trioSafe.map((x,i)=>
+   `<div class="buy">${i+1}. ${x.map(h=>h.no).join(" - ")} <span class="small">¥${money(.25,trioSafe.length)}</span></div>`).join("");
+ document.getElementById("trioUpset").innerHTML=trioUpset.map((x,i)=>
+   `<div class="buy">${i+1}. ${x.map(h=>h.no).join(" - ")} <span class="small">¥${money(.15,trioUpset.length)}</span></div>`).join("");
+ document.getElementById("trifectaSafe").innerHTML=trifectaSafe.map((x,i)=>
+   `<div class="buy">${i+1}. ${x.map(h=>h.no).join(" → ")} <span class="small">¥${money(.20,trifectaSafe.length)}</span></div>`).join("");
+ document.getElementById("trifectaUpset").innerHTML=trifectaUpset.map((x,i)=>
+   `<div class="buy">${i+1}. ${x.map(h=>h.no).join(" → ")} <span class="small">¥${money(.20,trifectaUpset.length)}</span></div>`).join("");
+
+ document.getElementById("result").style.display="block";
+ window.scrollTo({top:document.getElementById("result").offsetTop-10,behavior:"smooth"});
+}
+
+updateVenues();
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+</script>
+</body>
+</html>
