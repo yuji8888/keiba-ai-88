@@ -6,9 +6,7 @@
   <meta name="theme-color" content="#111827">
   <title>三島優治専用 競馬AI Ver.6</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       padding: 16px;
@@ -23,19 +21,9 @@
       border-radius: 8px;
       margin-bottom: 16px;
     }
-    header h1 {
-      margin: 0;
-      font-size: 22px;
-    }
-    header p {
-      margin: 4px 0 0 0;
-      font-size: 14px;
-      color: #9ca3af;
-    }
-    main {
-      max-width: 900px;
-      margin: auto;
-    }
+    header h1 { margin: 0; font-size: 22px; }
+    header p { margin: 4px 0 0 0; font-size: 14px; color: #9ca3af; }
+    main { max-width: 900px; margin: auto; }
     .card {
       background: #fff;
       border-radius: 8px;
@@ -43,13 +31,14 @@
       margin-bottom: 16px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
-    h2 {
-      font-size: 18px;
-      margin: 0 0 12px 0;
-    }
-    label {
-      font-size: 13px;
-      color: #475569;
+    h2 { font-size: 18px; margin: 0 0 12px 0; }
+    label { font-size: 13px; color: #475569; display: block; margin-top: 8px; }
+    textarea, select {
+      width: 100%;
+      padding: 8px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      margin-top: 4px;
     }
     button {
       width: 100%;
@@ -59,45 +48,25 @@
       font-weight: bold;
       cursor: pointer;
     }
-    button.accent {
-      background: #2563eb;
-      color: #fff;
-    }
-    .table-wrapper {
-      overflow-x: auto;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 8px;
-    }
-    th, td {
-      border: 1px solid #e5e7eb;
-      padding: 8px;
-      text-align: left;
-    }
-    .badge {
-      display: inline-block;
-      padding: 2px 6px;
-      border-radius: 4px;
-      background: #e2e8f0;
-      font-size: 12px;
-    }
+    button.accent { background: #2563eb; color: #fff; font-size: 16px; }
+    .table-wrapper { overflow-x: auto; margin-top: 10px; }
+    table { width: 100%; border-collapse: collapse; min-width: 500px; }
+    th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; font-size: 13px; }
+    th { background: #f8fafc; }
     .buy-section {
       margin: 12px 0;
       padding: 12px;
       background: #f8fafc;
       border-radius: 6px;
+      border-left: 4px solid #2563eb;
     }
-    .buy-title {
-      font-size: 14px;
-      font-weight: bold;
-      margin-bottom: 8px;
-    }
-    .buy-item {
-      font-size: 14px;
-      font-weight: bold;
-      margin-bottom: 4px;
+    .buy-title { font-size: 15px; font-weight: bold; margin-bottom: 8px; color: #1e3a8a; }
+    .buy-item { font-size: 14px; font-weight: bold; margin-bottom: 6px; }
+    .setting-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
     }
   </style>
 </head>
@@ -110,87 +79,171 @@
   <main>
     <div class="card">
       <h2>出走馬リスト入力 (1行1頭)</h2>
-      <textarea id="horseList" rows="10" style="width:100%; padding:8px; border-radius:6px; border:1px solid #ccc;"></textarea>
-      <button class="accent" style="margin-top:10px;" onclick="calculateAI()">AI予想を計算実行</button>
+      <textarea id="horseList" rows="8" placeholder="馬名を1行ずつ貼り付けてください"></textarea>
+      
+      <label>▼ 各券種の購入点数設定</label>
+      <div class="setting-grid">
+        <div><label>単勝</label><select id="winCnt"><option value="1">1点</option><option value="2">2点</option><option value="3" selected>3点</option></select></div>
+        <div><label>複勝</label><select id="placeCnt"><option value="1">1点</option><option value="2">2点</option><option value="3" selected>3点</option></select></div>
+        <div><label>枠連</label><select id="bracketCnt"><option value="3" selected>3点</option><option value="5">5点</option></select></div>
+        <div><label>馬連</label><select id="quinellaCnt"><option value="3">3点</option><option value="5" selected>5点</option></select></div>
+        <div><label>ワイド</label><select id="wideCnt"><option value="3">3点</option><option value="5" selected>5点</option></select></div>
+        <div><label>馬単</label><select id="exactaCnt"><option value="3" selected>3点</option><option value="5">5点</option></select></div>
+        <div><label>3連複</label><select id="trioCnt"><option value="5" selected>5点</option><option value="10">10点</option></select></div>
+        <div><label>3連単</label><select id="trifectaCnt"><option value="5">5点</option><option value="10" selected>10点</option></select></div>
+      </div>
+
+      <button class="accent" onclick="calculateAI()">AI予想を計算実行</button>
     </div>
 
-    <div class="card" id="resultCard" style="display:none;">
-      <h2>買い目結果</h2>
-      <div class="buy-section">
-        <div class="buy-title">■ 馬単 (3点)</div>
-        <div id="exactaBuy"></div>
+    <!-- 出走表カード -->
+    <div class="card" id="tableCard" style="display:none;">
+      <h2>出走馬AI分析一覧</h2>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>馬番</th>
+              <th>馬名</th>
+              <th>AIスコア</th>
+              <th>想定オッズ</th>
+            </tr>
+          </thead>
+          <tbody id="horseTableBody"></tbody>
+        </table>
       </div>
+    </div>
 
-      <div class="buy-section">
-        <div class="buy-title">★ 3連複 (AI計算による厳選5点)</div>
-        <div id="trioBuy"></div>
-      </div>
+    <!-- 買い目結果カード -->
+    <div class="card" id="resultCard" style="display:none;">
+      <h2>全8券種 買い目結果</h2>
+
+      <div class="buy-section"><div class="buy-title" id="winTitle">■ 単勝</div><div id="winBuy"></div></div>
+      <div class="buy-section"><div class="buy-title" id="placeTitle">■ 複勝</div><div id="placeBuy"></div></div>
+      <div class="buy-section"><div class="buy-title" id="bracketTitle">■ 枠連</div><div id="bracketBuy"></div></div>
+      <div class="buy-section"><div class="buy-title" id="quinellaTitle">■ 馬連</div><div id="quinellaBuy"></div></div>
+      <div class="buy-section"><div class="buy-title" id="wideTitle">■ ワイド</div><div id="wideBuy"></div></div>
+      <div class="buy-section"><div class="buy-title" id="exactaTitle">■ 馬単</div><div id="exactaBuy"></div></div>
+      <div class="buy-section"><div class="buy-title" id="trioTitle">★ 3連複</div><div id="trioBuy"></div></div>
+      <div class="buy-section"><div class="buy-title" id="trifectaTitle">★ 3連単</div><div id="trifectaBuy"></div></div>
     </div>
   </main>
 
   <script>
     function calculateAI() {
       const text = document.getElementById("horseList").value.trim();
-      if (!text) return alert("馬名を送信・入力してください。");
+      if (!text) return alert("馬名を入力（貼り付け）してください。");
 
       const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
-      
-      // サンプル用スコア（入力順に擬似スコア・オッズを設定）
-      const r = lines.map((name, index) => ({
-        no: index + 1,
-        name: name,
-        score: Math.max(10, 100 - index * 5),
-        odds: (index + 1) * 3.5
-      }));
+      if (lines.length < 3) return alert("3頭以上の馬名を入力してください。");
 
-      if (r.length < 3) {
-        return alert("3頭以上入力してください。");
-      }
+      // 馬データの生成（馬番・枠番・AIスコア算出）
+      const r = lines.map((name, index) => {
+        const no = index + 1;
+        const frame = Math.ceil(no / (lines.length / 8 || 2));
+        return {
+          no: no,
+          frame: Math.min(8, Math.max(1, frame)),
+          name: name,
+          score: Math.max(10, 100 - index * 5),
+          odds: Math.round((index + 1) * 3.5 * 10) / 10
+        };
+      });
 
-      // 馬単 買い目抽出
-      const h1 = r[0];
-      const h2 = r[1];
-      const h3 = r[2];
+      // 1. 出走表テーブルの描画
+      let tableHTML = "";
+      r.forEach(m => {
+        tableHTML += `<tr><td>${m.no}</td><td><b>${m.name}</b></td><td>${m.score} pt</td><td>${m.odds} 倍</td></tr>`;
+      });
+      document.getElementById("horseTableBody").innerHTML = tableHTML;
+      document.getElementById("tableCard").style.display = "block";
 
-      // 77〜81行目のエラー修正箇所（.innerHTML = を追加）
-      document.getElementById("exactaBuy").innerHTML = `
-        <div class="buy-item">① ${h1.no} (${h1.name}) - ${h2.no} (${h2.name})</div>
-        <div class="buy-item">② ${h1.no} (${h1.name}) - ${h3.no} (${h3.name})</div>
-        <div class="buy-item">③ ${h2.no} (${h2.name}) - ${h1.no} (${h1.name})</div>
-      `;
+      // 2. 件数取得
+      const getLimit = id => parseInt(document.getElementById(id).value);
 
-      // ★ 3連複 (AI計算による厳選5点)
-      // 全ての3頭の組み合わせのスコアとオッズ期待値を計算
-      let trioCombinations = [];
-      for(let i=0; i<r.length-2; i++){
-        for(let j=i+1; j<r.length-1; j++){
-          for(let k=j+1; k<r.length; k++){
-            const comboScore = r[i].score + r[j].score + r[k].score;
-            const expectedOdds = Math.round((r[i].odds + r[j].odds + r[k].odds) * 10) / 10;
-            
-            // 本命要素とオッズの妙味度を掛け合わせたAI期待値
-            const aiValue = comboScore * (expectedOdds / 10);
+      // 単勝
+      let wins = [...r].sort((a,b) => b.score - a.score).slice(0, getLimit("winCnt"));
+      document.getElementById("winTitle").innerText = `■ 単勝 (${wins.length}点)`;
+      document.getElementById("winBuy").innerHTML = wins.map((m,i)=>`<div class="buy-item">${i+1}. ${m.no} (${m.name})</div>`).join("");
 
-            trioCombinations.push({
-              nos: [r[i].no, r[j].no, r[k].no],
-              names: [r[i].name, r[j].name, r[k].name],
-              aiValue: aiValue,
-              oddsEst: expectedOdds
-            });
+      // 複勝
+      let places = [...r].sort((a,b) => b.score - a.score).slice(0, getLimit("placeCnt"));
+      document.getElementById("placeTitle").innerText = `■ 複勝 (${places.length}点)`;
+      document.getElementById("placeBuy").innerHTML = places.map((m,i)=>`<div class="buy-item">${i+1}. ${m.no} (${m.name})</div>`).join("");
+
+      // 枠連
+      let brackets = [];
+      for(let i=0; i<r.length-1; i++){
+        for(let j=i+1; j<r.length; j++){
+          if(r[i].frame !== r[j].frame){
+            brackets.push({ f1: r[i].frame, f2: r[j].frame, score: r[i].score + r[j].score });
           }
         }
       }
+      brackets.sort((a,b) => b.score - a.score);
+      let topBrackets = brackets.slice(0, getLimit("bracketCnt"));
+      document.getElementById("bracketTitle").innerText = `■ 枠連 (${topBrackets.length}点)`;
+      document.getElementById("bracketBuy").innerHTML = topBrackets.map((m,i)=>`<div class="buy-item">${i+1}. ${m.f1} - ${m.f2} 枠</div>`).join("");
 
-      // AI期待値が高い順にソートして上位5点を抽出
-      trioCombinations.sort((a,b) => b.aiValue - a.aiValue);
-      const topTrios = trioCombinations.slice(0, 5);
+      // 馬連
+      let quinellas = [];
+      for(let i=0; i<r.length-1; i++){
+        for(let j=i+1; j<r.length; j++){
+          quinellas.push({ nos: [r[i].no, r[j].no], names: [r[i].name, r[j].name], score: r[i].score + r[j].score });
+        }
+      }
+      quinellas.sort((a,b) => b.score - a.score);
+      let topQuinellas = quinellas.slice(0, getLimit("quinellaCnt"));
+      document.getElementById("quinellaTitle").innerText = `■ 馬連 (${topQuinellas.length}点)`;
+      document.getElementById("quinellaBuy").innerHTML = topQuinellas.map((m,i)=>`<div class="buy-item">${i+1}. ${m.nos.join(" - ")} (${m.names.join(", ")})</div>`).join("");
 
-      // 3連複の買い目を画面に描画
-      let trioHTML = "";
-      topTrios.forEach((item, index) => {
-        trioHTML += `<div class="buy-item">${index + 1}. ${item.nos.join(" - ")} (${item.names.join(", ")})</div>`;
-      });
-      document.getElementById("trioBuy").innerHTML = trioHTML;
+      // ワイド
+      let wides = [...quinellas];
+      let topWides = wides.slice(0, getLimit("wideCnt"));
+      document.getElementById("wideTitle").innerText = `■ ワイド (${topWides.length}点)`;
+      document.getElementById("wideBuy").innerHTML = topWides.map((m,i)=>`<div class="buy-item">${i+1}. ${m.nos.join(" - ")} (${m.names.join(", ")})</div>`).join("");
+
+      // 馬単
+      let exactas = [];
+      for(let i=0; i<r.length; i++){
+        for(let j=0; j<r.length; j++){
+          if(i === j) continue;
+          exactas.push({ no1: r[i].no, name1: r[i].name, no2: r[j].no, name2: r[j].name, score: (r[i].score * 1.3) + r[j].score });
+        }
+      }
+      exactas.sort((a,b) => b.score - a.score);
+      let topExactas = exactas.slice(0, getLimit("exactaCnt"));
+      document.getElementById("exactaTitle").innerText = `■ 馬単 (${topExactas.length}点)`;
+      document.getElementById("exactaBuy").innerHTML = topExactas.map((m,i)=>`<div class="buy-item">${i+1}. ${m.no1} (${m.name1}) → ${m.no2} (${m.name2})</div>`).join("");
+
+      // 3連複
+      let trios = [];
+      for(let i=0; i<r.length-2; i++){
+        for(let j=i+1; j<r.length-1; j++){
+          for(let k=j+1; k<r.length; k++){
+            trios.push({ nos: [r[i].no, r[j].no, r[k].no], names: [r[i].name, r[j].name, r[k].name], score: r[i].score + r[j].score + r[k].score });
+          }
+        }
+      }
+      trios.sort((a,b) => b.score - a.score);
+      let topTrios = trios.slice(0, getLimit("trioCnt"));
+      document.getElementById("trioTitle").innerText = `★ 3連複 (${topTrios.length}点)`;
+      document.getElementById("trioBuy").innerHTML = topTrios.map((m,i)=>`<div class="buy-item">${i+1}. ${m.nos.join(" - ")} (${m.names.join(", ")})</div>`).join("");
+
+      // 3連単
+      let trifectas = [];
+      for(let i=0; i<r.length; i++){
+        for(let j=0; j<r.length; j++){
+          for(let k=0; k<r.length; k++){
+            if(i === j || j === k || i === k) continue;
+            trifectas.push({ no1: r[i].no, name1: r[i].name, no2: r[j].no, name2: r[j].name, no3: r[k].no, name3: r[k].name, score: (r[i].score * 1.5) + (r[j].score * 1.2) + r[k].score });
+          }
+        }
+      }
+      trifectas.sort((a,b) => b.score - a.score);
+      let topTrifectas = trifectas.slice(0, getLimit("trifectaCnt"));
+      document.getElementById("trifectaTitle").innerText = `★ 3連単 (${topTrifectas.length}点)`;
+      document.getElementById("trifectaBuy").innerHTML = topTrifectas.map((m,i)=>`<div class="buy-item">${i+1}. ${m.no1} (${m.name1}) → ${m.no2} (${m.name2}) → ${m.no3} (${m.name3})</div>`).join("");
 
       document.getElementById("resultCard").style.display = "block";
     }
