@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>競馬AI Track Adaptive Engine v6.0</title>
+  <title>競馬AI Premier Value & Ticket Engine v7.0</title>
   <style>
     body { font-family: sans-serif; margin: 20px; background-color: #f4f7f6; color: #333; }
     h1 { color: #2c3e50; }
@@ -11,18 +11,24 @@
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     label { font-weight: bold; display: block; margin-top: 10px; }
     select, textarea, button { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
-    textarea { height: 150px; font-family: monospace; }
+    textarea { height: 140px; font-family: monospace; }
     button { background-color: #27ae60; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 15px; padding: 12px; }
     button:hover { background-color: #219150; }
     table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
     th { background-color: #34495e; color: white; }
     .best-buy { background-color: #ffcccc; font-weight: bold; color: #c0392b; }
+    
+    .ticket-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }
+    .ticket-box { background: #f8f9fa; border: 1px solid #ced4da; border-radius: 6px; padding: 10px; }
+    .ticket-box h4 { margin: 0 0 8px 0; color: #2c3e50; border-bottom: 2px solid #27ae60; padding-bottom: 4px; }
+    .ticket-list { list-style: none; padding: 0; margin: 0; font-family: monospace; font-size: 14px; }
+    .ticket-list li { padding: 3px 0; border-bottom: 1px dashed #e9ecef; }
   </style>
 </head>
 <body>
 
-  <h1>競馬AI Track Adaptive Engine v6.0</h1>
+  <h1>競馬AI Premier Value & Ticket Engine v7.0</h1>
 
   <div class="card">
     <h3>レース条件設定</h3>
@@ -49,9 +55,9 @@
   <div class="card">
     <h3>出走表データ一括貼り付け</h3>
     <p style="font-size:12px; color:#666; margin:2px 0;">フォーマット：馬名, 枠, 馬番, 斤量, 近走平均着順, 前走上がり3F, 道悪適性(1/0), 単勝オッズ</p>
-    <textarea id="pasteArea" placeholder="イクイノックス, 1, 1, 58.0, 1.0, 33.1, 0, 1.5&#10;ドウデュース, 3, 5, 58.0, 2.2, 33.5, 1, 3.8&#10;道悪の鬼サンプル, 5, 9, 56.0, 5.5, 34.8, 1, 18.0"></textarea>
+    <textarea id="pasteArea" placeholder="パンジャタワー, 2, 3, 58.0, 4.0, 33.4, 0, 2.0&#10;ロジケープ, 7, 13, 55.0, 1.0, 33.3, 1, 7.0&#10;ウインカーネリアン, 4, 8, 59.0, 4.0, 33.6, 0, 8.5&#10;エーティーマクフィ, 2, 4, 57.0, 6.0, 33.5, 1, 10.3&#10;ダノンマッキンリー, 5, 10, 57.0, 5.0, 33.8, 1, 12.4&#10;エイシンディード, 8, 15, 55.0, 4.0, 33.9, 1, 16.0"></textarea>
     
-    <button onclick="parseAndAnalyze()">馬場＆オッズ解析・推奨馬抽出</button>
+    <button onclick="parseAndAnalyze()">解析・買い目5点自動抽出</button>
   </div>
 
   <div class="card">
@@ -76,6 +82,32 @@
     </table>
   </div>
 
+  <div class="card">
+    <h3>AI推せん買い目 (各5点)</h3>
+    <div class="ticket-grid">
+      <div class="ticket-box">
+        <h4>馬連 (5点)</h4>
+        <ul id="umarenList" class="ticket-list"></ul>
+      </div>
+      <div class="ticket-box">
+        <h4>馬単 (5点)</h4>
+        <ul id="umatanList" class="ticket-list"></ul>
+      </div>
+      <div class="ticket-box">
+        <h4>ワイド (5点)</h4>
+        <ul id="wideList" class="ticket-list"></ul>
+      </div>
+      <div class="ticket-box">
+        <h4>3連複 (5点)</h4>
+        <ul id="sanrenpukuList" class="ticket-list"></ul>
+      </div>
+      <div class="ticket-box">
+        <h4>3連単 (5点)</h4>
+        <ul id="sanrentanList" class="ticket-list"></ul>
+      </div>
+    </div>
+  </div>
+
   <script>
     function parseAndAnalyze() {
       const text = document.getElementById('pasteArea').value.trim();
@@ -96,32 +128,25 @@
         const weight = parseFloat(cols[3]) || 57.0;
         const recentRank = parseFloat(cols[4]) || 8.0;
         const last3f = parseFloat(cols[5]) || 35.0;
-        const wetAptitude = parseInt(cols[6]) || 0; // 1:得意, 0:普通
+        const wetAptitude = parseInt(cols[6]) || 0;
         const odds = parseFloat(cols[7]) || 10.0;
 
-        // --- 馬場状態に応じたロジック切り替え ---
         let baseScore = 50 - (recentRank * 3.5);
 
         if (track === 'good') {
-          // 良馬場: スピード(上がり3F)の加点倍率を高くする
           baseScore += (34.5 - last3f) * 12.0;
           baseScore += (57.0 - weight) * 2.5;
-          if (wetAptitude === 1) baseScore += 2.0; // わずかなボーナス
-        } 
-        else if (track === 'yielding') {
-          // 稍重: 標準的な計算
+          if (wetAptitude === 1) baseScore += 2.0;
+        } else if (track === 'yielding') {
           baseScore += (34.5 - last3f) * 10.0;
           baseScore += (57.0 - weight) * 3.0;
           if (wetAptitude === 1) baseScore += 5.0;
-        } 
-        else if (track === 'soft') {
-          // 重・不良: スピード加点を抑え、斤量影響＆道悪適性を超優遇
+        } else if (track === 'soft') {
           baseScore += (34.5 - last3f) * 6.0;
-          baseScore += (57.0 - weight) * 4.0; // 重馬場ほど斤量苦が効く
-          if (wetAptitude === 1) baseScore += 12.0; // 重馬場適性馬に特大ボーナス！
+          baseScore += (57.0 - weight) * 4.0;
+          if (wetAptitude === 1) baseScore += 12.0;
         }
 
-        // 枠順バイアス補正
         if (bias === 'inner' && gate <= 3) baseScore += 4.0;
         else if (bias === 'outer' && gate >= 6) baseScore += 4.0;
 
@@ -131,10 +156,14 @@
         horses.push({ name, gate, num, weight, wetAptitude, aiIndex, odds, valueScore });
       });
 
-      // Valueスコア順にソート
+      if (horses.length < 3) {
+        return alert('3頭以上のデータを入力してください');
+      }
+
       horses.sort((a, b) => b.valueScore - a.valueScore);
 
       renderTable(horses);
+      generateTickets(horses);
     }
 
     function renderTable(horses) {
@@ -154,10 +183,77 @@
           <td>${h.aiIndex}</td>
           <td>${h.odds}倍</td>
           <td>${h.valueScore}</td>
-          <td>${index === 0 ? '★大本命穴馬' : (index === 1 ? '○ 期待大' : '-')}</td>
+          <td>${index === 0 ? '★軸推奨' : (index <= 3 ? '○ 相手線' : '-')}</td>
         `;
         tbody.appendChild(tr);
       });
+    }
+
+    function generateTickets(horses) {
+      const h1 = horses[0].num; // 軸馬 (Value1位)
+      const h2 = horses[1].num; // 相手1
+      const h3 = horses[2].num; // 相手2
+      const h4 = horses[3] ? horses[3].num : null; // 相手3
+      const h5 = horses[4] ? horses[4].num : null; // 相手4
+
+      // 相手候補の枠組み
+      const partners = [h2, h3, h4, h5].filter(Boolean);
+
+      // 馬連 (5点): 軸馬からの流し4点 + 相手上位2頭のボックス1点
+      const umaren = [
+        `${h1} - ${h2}`,
+        `${h1} - ${h3}`,
+        partners[2] ? `${h1} - ${partners[2]}` : '',
+        partners[3] ? `${h1} - ${partners[3]}` : '',
+        `${h2} - ${h3}`
+      ].filter(Boolean);
+
+      // 馬単 (5点): 軸1着固定4点 + 逆転保険1点
+      const umatan = [
+        `${h1} → ${h2}`,
+        `${h1} → ${h3}`,
+        partners[2] ? `${h1} → ${partners[2]}` : '',
+        partners[3] ? `${h1} → ${partners[3]}` : '',
+        `${h2} → ${h1}`
+      ].filter(Boolean);
+
+      // ワイド (5点): 軸から4点 + 穴相手1点
+      const wide = [
+        `${h1} - ${h2}`,
+        `${h1} - ${h3}`,
+        partners[2] ? `${h1} - ${partners[2]}` : '',
+        partners[3] ? `${h1} - ${partners[3]}` : '',
+        `${h2} - ${h3}`
+      ].filter(Boolean);
+
+      // 3連複 (5点): 1頭軸流し5点
+      const sanrenpuku = [
+        `${h1} - ${h2} - ${h3}`,
+        partners[2] ? `${h1} - ${h2} - ${partners[2]}` : '',
+        partners[3] ? `${h1} - ${h2} - ${partners[3]}` : '',
+        partners[2] ? `${h1} - ${h3} - ${partners[2]}` : '',
+        partners[3] ? `${h1} - ${h3} - ${partners[3]}` : ''
+      ].filter(Boolean);
+
+      // 3連単 (5点): 1着軸固定の厳選5点
+      const sanrentan = [
+        `${h1} → ${h2} → ${h3}`,
+        partners[2] ? `${h1} → ${h2} → ${partners[2]}` : '',
+        `${h1} → ${h3} → ${h2}`,
+        partners[2] ? `${h1} → ${h3} → ${partners[2]}` : '',
+        partners[3] ? `${h1} → ${h2} → ${partners[3]}` : ''
+      ].filter(Boolean);
+
+      renderList('umarenList', umaren);
+      renderList('umatanList', umatan);
+      renderList('wideList', wide);
+      renderList('sanrenpukuList', sanrenpuku);
+      renderList('sanrentanList', sanrentan);
+    }
+
+    function renderList(elementId, items) {
+      const el = document.getElementById(elementId);
+      el.innerHTML = items.slice(0, 5).map(item => `<li>${item}</li>`).join('');
     }
   </script>
 </body>
