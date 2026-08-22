@@ -3,28 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>競馬AI Money Management Engine v9.0 (高配当特化版)</title>
+  <title>競馬AI Money Management Engine v9.5 (気になる穴馬対応版)</title>
   <style>
     body { font-family: sans-serif; margin: 20px; background-color: #f4f7f6; color: #333; }
     .card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
-    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
     input, select, textarea, button { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
     button { background-color: #27ae60; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 15px; padding: 12px; font-size: 16px; }
     button:hover { background-color: #219150; }
     .ticket-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-top: 15px; }
     .ticket-box { background: #fff; border: 2px solid #34495e; border-radius: 6px; padding: 12px; }
     .high-return-box { border: 2px solid #e74c3c; background-color: #fdf2e9; }
-    .unit-info { font-size: 13px; color: #c0392b; font-weight: bold; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1fr dashed #ccc; }
+    .custom-hole-box { border: 2px solid #8e44ad; background-color: #f4ecf7; }
+    .unit-info { font-size: 13px; color: #c0392b; font-weight: bold; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px dashed #ccc; }
     .ticket-list { list-style: none; padding: 0; margin: 0; font-family: monospace; font-size: 14px; line-height: 1.6; }
     .summary-bar { background-color: #2c3e50; color: white; padding: 10px 15px; border-radius: 6px; margin-bottom: 15px; font-size: 15px; }
   </style>
 </head>
 <body>
 
-  <h1>競馬AI Engine v9.0 (資金配分＆高配当30万狙い)</h1>
+  <h1>競馬AI Engine v9.5 (直感穴馬＆30万狙い統合版)</h1>
 
   <div class="card">
-    <h3>① 資金・条件設定</h3>
+    <h3>① 資金・条件・気になる穴馬の設定</h3>
     <div class="grid">
       <div>
         <label>合計予算 (円)</label>
@@ -36,6 +37,10 @@
           <option value="good">良馬場</option>
           <option value="soft">重・不良馬場</option>
         </select>
+      </div>
+      <div>
+        <label>気になる穴馬 (馬番/任意)</label>
+        <input type="text" id="customHole" placeholder="例: 6 や 14">
       </div>
     </div>
   </div>
@@ -59,6 +64,8 @@
     function parseAndAnalyze() {
       const budget = parseInt(document.getElementById('totalBudget').value) || 10000;
       const text = document.getElementById('pasteArea').value.trim();
+      const customHoleInput = document.getElementById('customHole').value.trim();
+
       if (!text) { alert('出走表データを入力してください'); return; }
 
       const lines = text.split('\n');
@@ -73,10 +80,9 @@
               last3f = parseFloat(cols[5]), wet = parseInt(cols[6]), 
               odds = parseFloat(cols[7]);
         
-        // 独自Value計算（指数 ÷ オッズ）
         let score = 50 - (rank * 3.5) + (57.0 - weight) * 3 + (34.5 - last3f) * 10;
         if (document.getElementById('trackCondition').value === 'soft' && wet === 1) {
-          score += 5; // 道悪適性加算
+          score += 5;
         }
         const value = (score / odds).toFixed(1);
         horses.push({ name, num, value: parseFloat(value), odds });
@@ -92,30 +98,21 @@
       const h3 = horses[2].num;
       const h4 = horses[3] ? horses[3].num : h2;
       const h5 = horses[4] ? horses[4].num : h3;
-      const p = [h2, h3, h4, h5];
 
-      // 単勝20倍以上の「高Value超・穴馬」を抽出（いなければ4番手以降の馬）
+      // AI選定の超穴馬
       const holeHorses = horses.filter(h => h.odds >= 20.0).sort((a, b) => b.value - a.value);
       const superHole = holeHorses.length > 0 ? holeHorses[0].num : h5;
 
       // --- 各券種の買い目作成 ---
-      
-      // 1. 馬連 (5点)
       const umaren = [`${h1} - ${h2}`, `${h1} - ${h3}`, `${h1} - ${h4}`, `${h1} - ${h5}`, `${h2} - ${h3}`];
-
-      // 2. 馬単 (5点)
       const umatan = [`${h1} → ${h2}`, `${h1} → ${h3}`, `${h1} → ${h4}`, `${h1} → ${h5}`, `${h2} → ${h1}`];
-
-      // 3. ワイド (5点)
       const wide = [`${h1} - ${h2}`, `${h1} - ${h3}`, `${h1} - ${h4}`, `${h1} - ${h5}`, `${h2} - ${h3}`];
 
-      // 4. 3連複 軸1頭相手4頭流し (6点)
       const sanrenpuku = [
         `${h1} - ${h2} - ${h3}`, `${h1} - ${h2} - ${h4}`, `${h1} - ${h2} - ${h5}`,
         `${h1} - ${h3} - ${h4}`, `${h1} - ${h3} - ${h5}`, `${h1} - ${h4} - ${h5}`
       ];
 
-      // 5. 3連単 裏表マルチ厳選 (15点)
       const sanrentan = [
         `${h1} → ${h2} → ${h3}`, `${h1} → ${h3} → ${h2}`, `${h1} → ${h2} → ${h4}`, `${h1} → ${h4} → ${h2}`,
         `${h1} → ${h3} → ${h4}`, `${h1} → ${h4} → ${h3}`, `${h2} → ${h1} → ${h3}`, `${h3} → ${h1} → ${h2}`,
@@ -123,18 +120,31 @@
         `${h3} → ${h2} → ${h1}`, `${h2} → ${h4} → ${h1}`, `${h3} → ${h4} → ${h1}`
       ];
 
-      // 6. 【一発逆転】30万オーバー狙い 3連単 (6点)
       const highReturn3Rentan = [
-        `${superHole} → ${h1} → ${h2}`,  // 超穴馬激走1着（30万〜100万オーバー）
+        `${superHole} → ${h1} → ${h2}`,
         `${superHole} → ${h1} → ${h3}`, 
-        `${h1} → ${superHole} → ${h2}`,  // 超穴馬2着突入（10万〜50万）
+        `${h1} → ${superHole} → ${h2}`,
         `${h1} → ${superHole} → ${h3}`,
         `${h2} → ${superHole} → ${h1}`,
         `${h3} → ${superHole} → ${h1}`
       ];
 
+      // --- 【追加】指定穴馬用の買い目（5点） ---
+      let customHoleTickets = [];
+      if (customHoleInput) {
+        const cH = customHoleInput;
+        customHoleTickets = [
+          `${h1} - ${cH} (ワイド)`,
+          `${h1} - ${h2} - ${cH} (3連複)`,
+          `${h1} → ${cH} → ${h2} (3連単)`,
+          `${h1} → ${h2} → ${cH} (3連単)`,
+          `${cH} → ${h1} → ${h2} (3連単)`
+        ];
+      }
+
       // 資金計算
-      const totalPoints = 5 + 5 + 5 + 6 + 15 + 6; // 全42点
+      const customCount = customHoleTickets.length;
+      const totalPoints = 5 + 5 + 5 + 6 + 15 + 6 + customCount; // 合計点数
       const unitStake = Math.max(100, Math.floor((budget / totalPoints) / 100) * 100);
       const actualTotalCost = unitStake * totalPoints;
 
@@ -148,17 +158,30 @@
       container.innerHTML = '';
 
       const configs = [
-        { name: "馬連", count: 5, items: umaren, isHigh: false },
-        { name: "馬単", count: 5, items: umatan, isHigh: false },
-        { name: "ワイド", count: 5, items: wide, isHigh: false },
-        { name: "3連複", count: 6, items: sanrenpuku, isHigh: false },
-        { name: "3連単", count: 15, items: sanrentan, isHigh: false },
-        { name: "🔥 30万オーバー狙い (3連単)", count: 6, items: highReturn3Rentan, isHigh: true }
+        { name: "馬連", count: 5, items: umaren, type: "normal" },
+        { name: "馬単", count: 5, items: umatan, type: "normal" },
+        { name: "ワイド", count: 5, items: wide, type: "normal" },
+        { name: "3連複", count: 6, items: sanrenpuku, type: "normal" },
+        { name: "3連単", count: 15, items: sanrentan, type: "normal" },
+        { name: "🔥 30万オーバー狙い (3連単)", count: 6, items: highReturn3Rentan, type: "high" }
       ];
+
+      if (customCount > 0) {
+        configs.push({
+          name: `🎯 直感特注馬 [${customHoleInput}番] 押さえ買い目`,
+          count: customCount,
+          items: customHoleTickets,
+          type: "custom"
+        });
+      }
 
       configs.forEach(cfg => {
         const div = document.createElement('div');
-        div.className = `ticket-box ${cfg.isHigh ? 'high-return-box' : ''}`;
+        let boxStyle = 'ticket-box';
+        if (cfg.type === 'high') boxStyle += ' high-return-box';
+        if (cfg.type === 'custom') boxStyle += ' custom-hole-box';
+
+        div.className = boxStyle;
         div.innerHTML = `
           <h4>${cfg.name} (${cfg.count}点)</h4>
           <div class="unit-info">1点あたり: ${unitStake.toLocaleString()}円 (計 ${(unitStake * cfg.count).toLocaleString()}円)</div>
