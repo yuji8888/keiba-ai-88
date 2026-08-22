@@ -3,257 +3,171 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>競馬AI Premier Value & Ticket Engine v7.0</title>
+  <title>競馬AI Money Management Engine v9.0 (高配当特化版)</title>
   <style>
     body { font-family: sans-serif; margin: 20px; background-color: #f4f7f6; color: #333; }
-    h1 { color: #2c3e50; }
     .card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
     .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    label { font-weight: bold; display: block; margin-top: 10px; }
-    select, textarea, button { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
-    textarea { height: 140px; font-family: monospace; }
-    button { background-color: #27ae60; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 15px; padding: 12px; }
+    input, select, textarea, button { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
+    button { background-color: #27ae60; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 15px; padding: 12px; font-size: 16px; }
     button:hover { background-color: #219150; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
-    th { background-color: #34495e; color: white; }
-    .best-buy { background-color: #ffcccc; font-weight: bold; color: #c0392b; }
-    
-    .ticket-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; margin-top: 15px; }
-    .ticket-box { background: #f8f9fa; border: 1px solid #ced4da; border-radius: 6px; padding: 10px; }
-    .ticket-box h4 { margin: 0 0 8px 0; color: #2c3e50; border-bottom: 2px solid #27ae60; padding-bottom: 4px; }
-    .ticket-list { list-style: none; padding: 0; margin: 0; font-family: monospace; font-size: 14px; }
-    .ticket-list li { padding: 3px 0; border-bottom: 1px dashed #e9ecef; }
+    .ticket-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-top: 15px; }
+    .ticket-box { background: #fff; border: 2px solid #34495e; border-radius: 6px; padding: 12px; }
+    .high-return-box { border: 2px solid #e74c3c; background-color: #fdf2e9; }
+    .unit-info { font-size: 13px; color: #c0392b; font-weight: bold; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1fr dashed #ccc; }
+    .ticket-list { list-style: none; padding: 0; margin: 0; font-family: monospace; font-size: 14px; line-height: 1.6; }
+    .summary-bar { background-color: #2c3e50; color: white; padding: 10px 15px; border-radius: 6px; margin-bottom: 15px; font-size: 15px; }
   </style>
 </head>
 <body>
 
-  <h1>競馬AI Premier Value & Ticket Engine v7.0</h1>
+  <h1>競馬AI Engine v9.0 (資金配分＆高配当30万狙い)</h1>
 
   <div class="card">
-    <h3>レース条件設定</h3>
+    <h3>① 資金・条件設定</h3>
     <div class="grid">
       <div>
-        <label>当日の馬場状態</label>
-        <select id="trackCondition">
-          <option value="good">良 (スピード重視)</option>
-          <option value="yielding">稍重 (標準)</option>
-          <option value="soft">重・不良 (スタミナ・道悪重視)</option>
-        </select>
+        <label>合計予算 (円)</label>
+        <input type="number" id="totalBudget" value="10000" step="1000">
       </div>
       <div>
-        <label>枠順傾向（コースバイアス）</label>
-        <select id="gateBias">
-          <option value="none">フラット（補正なし）</option>
-          <option value="inner">内枠有利 (1〜3枠に+4pt)</option>
-          <option value="outer">外枠有利 (6〜8枠に+4pt)</option>
+        <label>馬場状態</label>
+        <select id="trackCondition">
+          <option value="good">良馬場</option>
+          <option value="soft">重・不良馬場</option>
         </select>
       </div>
     </div>
   </div>
 
   <div class="card">
-    <h3>出走表データ一括貼り付け</h3>
-    <p style="font-size:12px; color:#666; margin:2px 0;">フォーマット：馬名, 枠, 馬番, 斤量, 近走平均着順, 前走上がり3F, 道悪適性(1/0), 単勝オッズ</p>
-    <textarea id="pasteArea" placeholder="パンジャタワー, 2, 3, 58.0, 4.0, 33.4, 0, 2.0&#10;ロジケープ, 7, 13, 55.0, 1.0, 33.3, 1, 7.0&#10;ウインカーネリアン, 4, 8, 59.0, 4.0, 33.6, 0, 8.5&#10;エーティーマクフィ, 2, 4, 57.0, 6.0, 33.5, 1, 10.3&#10;ダノンマッキンリー, 5, 10, 57.0, 5.0, 33.8, 1, 12.4&#10;エイシンディード, 8, 15, 55.0, 4.0, 33.9, 1, 16.0"></textarea>
-    
-    <button onclick="parseAndAnalyze()">解析・買い目5点自動抽出</button>
+    <h3>② 出走表データ貼り付け</h3>
+    <textarea id="pasteArea" rows="6" placeholder="馬名, 枠, 馬番, 斤量, 近走平均着順, 前走上がり3F, 道悪適性(1/0), 単勝オッズ"></textarea>
+    <button onclick="parseAndAnalyze()">買い目算出＆資金配分を実行</button>
   </div>
 
-  <div class="card">
-    <h3>解析結果（Valueスコア順）</h3>
-    <table id="resultTable">
-      <thead>
-        <tr>
-          <th>枠</th>
-          <th>馬番</th>
-          <th>馬名</th>
-          <th>斤量</th>
-          <th>道悪</th>
-          <th>AI指数</th>
-          <th>オッズ</th>
-          <th>Valueスコア</th>
-          <th>推奨</th>
-        </tr>
-      </thead>
-      <tbody>
-        <!-- 解析結果が出力されます -->
-      </tbody>
-    </table>
-  </div>
+  <div id="summaryBar" class="summary-bar" style="display:none;"></div>
 
   <div class="card">
-    <h3>AI推せん買い目 (各5点)</h3>
-    <div class="ticket-grid">
-      <div class="ticket-box">
-        <h4>馬連 (5点)</h4>
-        <ul id="umarenList" class="ticket-list"></ul>
-      </div>
-      <div class="ticket-box">
-        <h4>馬単 (5点)</h4>
-        <ul id="umatanList" class="ticket-list"></ul>
-      </div>
-      <div class="ticket-box">
-        <h4>ワイド (5点)</h4>
-        <ul id="wideList" class="ticket-list"></ul>
-      </div>
-      <div class="ticket-box">
-        <h4>3連複 (5点)</h4>
-        <ul id="sanrenpukuList" class="ticket-list"></ul>
-      </div>
-      <div class="ticket-box">
-        <h4>3連単 (5点)</h4>
-        <ul id="sanrentanList" class="ticket-list"></ul>
-      </div>
+    <h3>③ AI推せん買い目一覧</h3>
+    <div class="ticket-grid" id="ticketContainer">
+      <!-- 買い目が自動挿入されます -->
     </div>
   </div>
 
   <script>
     function parseAndAnalyze() {
+      const budget = parseInt(document.getElementById('totalBudget').value) || 10000;
       const text = document.getElementById('pasteArea').value.trim();
-      if (!text) return alert('データを入力してください');
+      if (!text) { alert('出走表データを入力してください'); return; }
 
       const lines = text.split('\n');
       const horses = [];
-      const track = document.getElementById('trackCondition').value;
-      const bias = document.getElementById('gateBias').value;
-
+      
       lines.forEach(line => {
         const cols = line.split(/,|\t/).map(c => c.trim());
         if (cols.length < 8) return;
-
-        const name = cols[0];
-        const gate = parseInt(cols[1]) || 1;
-        const num = cols[2];
-        const weight = parseFloat(cols[3]) || 57.0;
-        const recentRank = parseFloat(cols[4]) || 8.0;
-        const last3f = parseFloat(cols[5]) || 35.0;
-        const wetAptitude = parseInt(cols[6]) || 0;
-        const odds = parseFloat(cols[7]) || 10.0;
-
-        let baseScore = 50 - (recentRank * 3.5);
-
-        if (track === 'good') {
-          baseScore += (34.5 - last3f) * 12.0;
-          baseScore += (57.0 - weight) * 2.5;
-          if (wetAptitude === 1) baseScore += 2.0;
-        } else if (track === 'yielding') {
-          baseScore += (34.5 - last3f) * 10.0;
-          baseScore += (57.0 - weight) * 3.0;
-          if (wetAptitude === 1) baseScore += 5.0;
-        } else if (track === 'soft') {
-          baseScore += (34.5 - last3f) * 6.0;
-          baseScore += (57.0 - weight) * 4.0;
-          if (wetAptitude === 1) baseScore += 12.0;
+        
+        const name = cols[0], gate = cols[1], num = cols[2], 
+              weight = parseFloat(cols[3]), rank = parseFloat(cols[4]), 
+              last3f = parseFloat(cols[5]), wet = parseInt(cols[6]), 
+              odds = parseFloat(cols[7]);
+        
+        // 独自Value計算（指数 ÷ オッズ）
+        let score = 50 - (rank * 3.5) + (57.0 - weight) * 3 + (34.5 - last3f) * 10;
+        if (document.getElementById('trackCondition').value === 'soft' && wet === 1) {
+          score += 5; // 道悪適性加算
         }
-
-        if (bias === 'inner' && gate <= 3) baseScore += 4.0;
-        else if (bias === 'outer' && gate >= 6) baseScore += 4.0;
-
-        const aiIndex = Math.max(0, Math.round(baseScore * 10) / 10);
-        const valueScore = (aiIndex / odds).toFixed(1);
-
-        horses.push({ name, gate, num, weight, wetAptitude, aiIndex, odds, valueScore });
+        const value = (score / odds).toFixed(1);
+        horses.push({ name, num, value: parseFloat(value), odds });
       });
 
-      if (horses.length < 3) {
-        return alert('3頭以上のデータを入力してください');
-      }
+      if (horses.length < 4) { alert('正しい形式で4頭以上のデータを入れてください'); return; }
 
-      horses.sort((a, b) => b.valueScore - a.valueScore);
+      // Valueの高い順にソート
+      horses.sort((a, b) => b.value - a.value);
 
-      renderTable(horses);
-      generateTickets(horses);
-    }
+      const h1 = horses[0].num; // 軸馬
+      const h2 = horses[1].num;
+      const h3 = horses[2].num;
+      const h4 = horses[3] ? horses[3].num : h2;
+      const h5 = horses[4] ? horses[4].num : h3;
+      const p = [h2, h3, h4, h5];
 
-    function renderTable(horses) {
-      const tbody = document.querySelector('#resultTable tbody');
-      tbody.innerHTML = '';
+      // 単勝20倍以上の「高Value超・穴馬」を抽出（いなければ4番手以降の馬）
+      const holeHorses = horses.filter(h => h.odds >= 20.0).sort((a, b) => b.value - a.value);
+      const superHole = holeHorses.length > 0 ? holeHorses[0].num : h5;
 
-      horses.forEach((h, index) => {
-        const tr = document.createElement('tr');
-        if (index === 0) tr.className = 'best-buy';
+      // --- 各券種の買い目作成 ---
+      
+      // 1. 馬連 (5点)
+      const umaren = [`${h1} - ${h2}`, `${h1} - ${h3}`, `${h1} - ${h4}`, `${h1} - ${h5}`, `${h2} - ${h3}`];
 
-        tr.innerHTML = `
-          <td>${h.gate}枠</td>
-          <td>${h.num}</td>
-          <td>${h.name}</td>
-          <td>${h.weight}kg</td>
-          <td>${h.wetAptitude === 1 ? '◎ 得意' : '-'}</td>
-          <td>${h.aiIndex}</td>
-          <td>${h.odds}倍</td>
-          <td>${h.valueScore}</td>
-          <td>${index === 0 ? '★軸推奨' : (index <= 3 ? '○ 相手線' : '-')}</td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
+      // 2. 馬単 (5点)
+      const umatan = [`${h1} → ${h2}`, `${h1} → ${h3}`, `${h1} → ${h4}`, `${h1} → ${h5}`, `${h2} → ${h1}`];
 
-    function generateTickets(horses) {
-      const h1 = horses[0].num; // 軸馬 (Value1位)
-      const h2 = horses[1].num; // 相手1
-      const h3 = horses[2].num; // 相手2
-      const h4 = horses[3] ? horses[3].num : null; // 相手3
-      const h5 = horses[4] ? horses[4].num : null; // 相手4
+      // 3. ワイド (5点)
+      const wide = [`${h1} - ${h2}`, `${h1} - ${h3}`, `${h1} - ${h4}`, `${h1} - ${h5}`, `${h2} - ${h3}`];
 
-      // 相手候補の枠組み
-      const partners = [h2, h3, h4, h5].filter(Boolean);
-
-      // 馬連 (5点): 軸馬からの流し4点 + 相手上位2頭のボックス1点
-      const umaren = [
-        `${h1} - ${h2}`,
-        `${h1} - ${h3}`,
-        partners[2] ? `${h1} - ${partners[2]}` : '',
-        partners[3] ? `${h1} - ${partners[3]}` : '',
-        `${h2} - ${h3}`
-      ].filter(Boolean);
-
-      // 馬単 (5点): 軸1着固定4点 + 逆転保険1点
-      const umatan = [
-        `${h1} → ${h2}`,
-        `${h1} → ${h3}`,
-        partners[2] ? `${h1} → ${partners[2]}` : '',
-        partners[3] ? `${h1} → ${partners[3]}` : '',
-        `${h2} → ${h1}`
-      ].filter(Boolean);
-
-      // ワイド (5点): 軸から4点 + 穴相手1点
-      const wide = [
-        `${h1} - ${h2}`,
-        `${h1} - ${h3}`,
-        partners[2] ? `${h1} - ${partners[2]}` : '',
-        partners[3] ? `${h1} - ${partners[3]}` : '',
-        `${h2} - ${h3}`
-      ].filter(Boolean);
-
-      // 3連複 (5点): 1頭軸流し5点
+      // 4. 3連複 軸1頭相手4頭流し (6点)
       const sanrenpuku = [
-        `${h1} - ${h2} - ${h3}`,
-        partners[2] ? `${h1} - ${h2} - ${partners[2]}` : '',
-        partners[3] ? `${h1} - ${h2} - ${partners[3]}` : '',
-        partners[2] ? `${h1} - ${h3} - ${partners[2]}` : '',
-        partners[3] ? `${h1} - ${h3} - ${partners[3]}` : ''
-      ].filter(Boolean);
+        `${h1} - ${h2} - ${h3}`, `${h1} - ${h2} - ${h4}`, `${h1} - ${h2} - ${h5}`,
+        `${h1} - ${h3} - ${h4}`, `${h1} - ${h3} - ${h5}`, `${h1} - ${h4} - ${h5}`
+      ];
 
-      // 3連単 (5点): 1着軸固定の厳選5点
+      // 5. 3連単 裏表マルチ厳選 (15点)
       const sanrentan = [
-        `${h1} → ${h2} → ${h3}`,
-        partners[2] ? `${h1} → ${h2} → ${partners[2]}` : '',
-        `${h1} → ${h3} → ${h2}`,
-        partners[2] ? `${h1} → ${h3} → ${partners[2]}` : '',
-        partners[3] ? `${h1} → ${h2} → ${partners[3]}` : ''
-      ].filter(Boolean);
+        `${h1} → ${h2} → ${h3}`, `${h1} → ${h3} → ${h2}`, `${h1} → ${h2} → ${h4}`, `${h1} → ${h4} → ${h2}`,
+        `${h1} → ${h3} → ${h4}`, `${h1} → ${h4} → ${h3}`, `${h2} → ${h1} → ${h3}`, `${h3} → ${h1} → ${h2}`,
+        `${h2} → ${h1} → ${h4}`, `${h3} → ${h1} → ${h4}`, `${h4} → ${h1} → ${h2}`, `${h2} → ${h3} → ${h1}`,
+        `${h3} → ${h2} → ${h1}`, `${h2} → ${h4} → ${h1}`, `${h3} → ${h4} → ${h1}`
+      ];
 
-      renderList('umarenList', umaren);
-      renderList('umatanList', umatan);
-      renderList('wideList', wide);
-      renderList('sanrenpukuList', sanrenpuku);
-      renderList('sanrentanList', sanrentan);
-    }
+      // 6. 【一発逆転】30万オーバー狙い 3連単 (6点)
+      const highReturn3Rentan = [
+        `${superHole} → ${h1} → ${h2}`,  // 超穴馬激走1着（30万〜100万オーバー）
+        `${superHole} → ${h1} → ${h3}`, 
+        `${h1} → ${superHole} → ${h2}`,  // 超穴馬2着突入（10万〜50万）
+        `${h1} → ${superHole} → ${h3}`,
+        `${h2} → ${superHole} → ${h1}`,
+        `${h3} → ${superHole} → ${h1}`
+      ];
 
-    function renderList(elementId, items) {
-      const el = document.getElementById(elementId);
-      el.innerHTML = items.slice(0, 5).map(item => `<li>${item}</li>`).join('');
+      // 資金計算
+      const totalPoints = 5 + 5 + 5 + 6 + 15 + 6; // 全42点
+      const unitStake = Math.max(100, Math.floor((budget / totalPoints) / 100) * 100);
+      const actualTotalCost = unitStake * totalPoints;
+
+      // サマリー表示
+      const summaryEl = document.getElementById('summaryBar');
+      summaryEl.style.display = 'block';
+      summaryEl.innerHTML = `<strong>【計算結果】</strong> 全<b>${totalPoints}点</b> / 1点あたり推奨: <b>${unitStake.toLocaleString()}円</b> （購入合計: ${actualTotalCost.toLocaleString()}円）`;
+
+      // 画面描画
+      const container = document.getElementById('ticketContainer');
+      container.innerHTML = '';
+
+      const configs = [
+        { name: "馬連", count: 5, items: umaren, isHigh: false },
+        { name: "馬単", count: 5, items: umatan, isHigh: false },
+        { name: "ワイド", count: 5, items: wide, isHigh: false },
+        { name: "3連複", count: 6, items: sanrenpuku, isHigh: false },
+        { name: "3連単", count: 15, items: sanrentan, isHigh: false },
+        { name: "🔥 30万オーバー狙い (3連単)", count: 6, items: highReturn3Rentan, isHigh: true }
+      ];
+
+      configs.forEach(cfg => {
+        const div = document.createElement('div');
+        div.className = `ticket-box ${cfg.isHigh ? 'high-return-box' : ''}`;
+        div.innerHTML = `
+          <h4>${cfg.name} (${cfg.count}点)</h4>
+          <div class="unit-info">1点あたり: ${unitStake.toLocaleString()}円 (計 ${(unitStake * cfg.count).toLocaleString()}円)</div>
+          <ul class="ticket-list">
+            ${cfg.items.map(item => `<li>${item}</li>`).join('')}
+          </ul>
+        `;
+        container.appendChild(div);
+      });
     }
   </script>
 </body>
