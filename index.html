@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>競馬AI Money Management Engine v9.5 (気になる穴馬対応版)</title>
+  <title>競馬AI Money Management Engine v10.0 (フォーメーション表示対応版)</title>
   <style>
     body { font-family: sans-serif; margin: 20px; background-color: #f4f7f6; color: #333; }
     .card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
@@ -11,18 +11,19 @@
     input, select, textarea, button { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
     button { background-color: #27ae60; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 15px; padding: 12px; font-size: 16px; }
     button:hover { background-color: #219150; }
-    .ticket-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-top: 15px; }
+    .ticket-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 15px; margin-top: 15px; }
     .ticket-box { background: #fff; border: 2px solid #34495e; border-radius: 6px; padding: 12px; }
     .high-return-box { border: 2px solid #e74c3c; background-color: #fdf2e9; }
     .custom-hole-box { border: 2px solid #8e44ad; background-color: #f4ecf7; }
     .unit-info { font-size: 13px; color: #c0392b; font-weight: bold; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px dashed #ccc; }
-    .ticket-list { list-style: none; padding: 0; margin: 0; font-family: monospace; font-size: 14px; line-height: 1.6; }
+    .formation-card { background: #fafafa; border: 1px solid #ddd; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 14px; line-height: 1.8; margin-bottom: 10px; }
+    .formation-title { font-weight: bold; color: #2c3e50; margin-bottom: 4px; font-size: 13px; text-decoration: underline; }
     .summary-bar { background-color: #2c3e50; color: white; padding: 10px 15px; border-radius: 6px; margin-bottom: 15px; font-size: 15px; }
   </style>
 </head>
 <body>
 
-  <h1>競馬AI Engine v9.5 (直感穴馬＆30万狙い統合版)</h1>
+  <h1>競馬AI Engine v10.0 (フォーメーション入力対応版)</h1>
 
   <div class="card">
     <h3>① 資金・条件・気になる穴馬の設定</h3>
@@ -54,7 +55,7 @@
   <div id="summaryBar" class="summary-bar" style="display:none;"></div>
 
   <div class="card">
-    <h3>③ AI推せん買い目一覧</h3>
+    <h3>③ AI推せん買い目（フォーメーション指示書）</h3>
     <div class="ticket-grid" id="ticketContainer">
       <!-- 買い目が自動挿入されます -->
     </div>
@@ -103,48 +104,61 @@
       const holeHorses = horses.filter(h => h.odds >= 20.0).sort((a, b) => b.value - a.value);
       const superHole = holeHorses.length > 0 ? holeHorses[0].num : h5;
 
-      // --- 各券種の買い目作成 ---
-      const umaren = [`${h1} - ${h2}`, `${h1} - ${h3}`, `${h1} - ${h4}`, `${h1} - ${h5}`, `${h2} - ${h3}`];
-      const umatan = [`${h1} → ${h2}`, `${h1} → ${h3}`, `${h1} → ${h4}`, `${h1} → ${h5}`, `${h2} → ${h1}`];
-      const wide = [`${h1} - ${h2}`, `${h1} - ${h3}`, `${h1} - ${h4}`, `${h1} - ${h5}`, `${h2} - ${h3}`];
-
-      const sanrenpuku = [
-        `${h1} - ${h2} - ${h3}`, `${h1} - ${h2} - ${h4}`, `${h1} - ${h2} - ${h5}`,
-        `${h1} - ${h3} - ${h4}`, `${h1} - ${h3} - ${h5}`, `${h1} - ${h4} - ${h5}`
+      // --- 各券種のフォーメーション定義 ---
+      
+      // 1. 馬連 (5点)
+      const umarenFormations = [
+        { title: "主軸流し (4点)", r1: [h1], r2: [h2, h3, h4, h5] },
+        { title: "対抗同士押さえ (1点)", r1: [h2], r2: [h3] }
       ];
 
-      const sanrentan = [
-        `${h1} → ${h2} → ${h3}`, `${h1} → ${h3} → ${h2}`, `${h1} → ${h2} → ${h4}`, `${h1} → ${h4} → ${h2}`,
-        `${h1} → ${h3} → ${h4}`, `${h1} → ${h4} → ${h3}`, `${h2} → ${h1} → ${h3}`, `${h3} → ${h1} → ${h2}`,
-        `${h2} → ${h1} → ${h4}`, `${h3} → ${h1} → ${h4}`, `${h4} → ${h1} → ${h2}`, `${h2} → ${h3} → ${h1}`,
-        `${h3} → ${h2} → ${h1}`, `${h2} → ${h4} → ${h1}`, `${h3} → ${h4} → ${h1}`
+      // 2. 馬単 (5点)
+      const umatanFormations = [
+        { title: "本線頭 (4点)", r1: [h1], r2: [h2, h3, h4, h5] },
+        { title: "逆転押さえ (1点)", r1: [h2], r2: [h1] }
       ];
 
-      const highReturn3Rentan = [
-        `${superHole} → ${h1} → ${h2}`,
-        `${superHole} → ${h1} → ${h3}`, 
-        `${h1} → ${superHole} → ${h2}`,
-        `${h1} → ${superHole} → ${h3}`,
-        `${h2} → ${superHole} → ${h1}`,
-        `${h3} → ${superHole} → ${h1}`
+      // 3. ワイド (5点)
+      const wideFormations = [
+        { title: "主軸流し (4点)", r1: [h1], r2: [h2, h3, h4, h5] },
+        { title: "対抗同士押さえ (1点)", r1: [h2], r2: [h3] }
       ];
 
-      // --- 【追加】指定穴馬用の買い目（5点） ---
-      let customHoleTickets = [];
+      // 4. 3連複 (6点)
+      const sanrenpukuFormations = [
+        { title: "軸1頭ながし/フォーメーション (6点)", r1: [h1], r2: [h2, h3, h4, h5], r3: [h2, h3, h4, h5] }
+      ];
+
+      // 5. 3連単 (15点)
+      const sanrentanFormations = [
+        { title: "パターン①: 本線軸頭 (6点)", r1: [h1], r2: [h2, h3, h4], r3: [h2, h3, h4] },
+        { title: "パターン②: 対抗頭・軸2着 (6点)", r1: [h2, h3], r2: [h1], r3: [h2, h3, h4] },
+        { title: "パターン③: 穴頭・軸3着 (3点)", r1: [h2, h3, h4], r2: [h2, h3, h4], r3: [h1] }
+      ];
+
+      // 6. 🔥 30万オーバー狙い 3連単 (6点)
+      const highReturnFormations = [
+        { title: "超高配当 A: 穴馬1着固定 (2点)", r1: [superHole], r2: [h1], r3: [h2, h3] },
+        { title: "超高配当 B: 穴馬2着挟み (2点)", r1: [h1], r2: [superHole], r3: [h2, h3] },
+        { title: "超高配当 C: 軸対抗→穴馬2着 (2点)", r1: [h2, h3], r2: [superHole], r3: [h1] }
+      ];
+
+      // --- 【追加】指定穴馬用フォーメーション (計5点) ---
+      let customHoleFormations = [];
       if (customHoleInput) {
         const cH = customHoleInput;
-        customHoleTickets = [
-          `${h1} - ${cH} (ワイド)`,
-          `${h1} - ${h2} - ${cH} (3連複)`,
-          `${h1} → ${cH} → ${h2} (3連単)`,
-          `${h1} → ${h2} → ${cH} (3連単)`,
-          `${cH} → ${h1} → ${h2} (3連単)`
+        customHoleFormations = [
+          { title: "ワイド (1点)", r1: [h1], r2: [cH] },
+          { title: "3連複 (1点)", r1: [h1], r2: [h2], r3: [cH] },
+          { title: "3連単 1着指定 (1点)", r1: [cH], r2: [h1], r3: [h2] },
+          { title: "3連単 2着指定 (1点)", r1: [h1], r2: [cH], r3: [h2] },
+          { title: "3連単 3着指定 (1点)", r1: [h1], r2: [h2], r3: [cH] }
         ];
       }
 
       // 資金計算
-      const customCount = customHoleTickets.length;
-      const totalPoints = 5 + 5 + 5 + 6 + 15 + 6 + customCount; // 合計点数
+      const customCount = customHoleInput ? 5 : 0;
+      const totalPoints = 5 + 5 + 5 + 6 + 15 + 6 + customCount;
       const unitStake = Math.max(100, Math.floor((budget / totalPoints) / 100) * 100);
       const actualTotalCost = unitStake * totalPoints;
 
@@ -158,20 +172,21 @@
       container.innerHTML = '';
 
       const configs = [
-        { name: "馬連", count: 5, items: umaren, type: "normal" },
-        { name: "馬単", count: 5, items: umatan, type: "normal" },
-        { name: "ワイド", count: 5, items: wide, type: "normal" },
-        { name: "3連複", count: 6, items: sanrenpuku, type: "normal" },
-        { name: "3連単", count: 15, items: sanrentan, type: "normal" },
-        { name: "🔥 30万オーバー狙い (3連単)", count: 6, items: highReturn3Rentan, type: "high" }
+        { name: "馬連", count: 5, forms: umarenFormations, type: "normal", is3: false },
+        { name: "馬単", count: 5, forms: umatanFormations, type: "normal", is3: false },
+        { name: "ワイド", count: 5, forms: wideFormations, type: "normal", is3: false },
+        { name: "3連複", count: 6, forms: sanrenpukuFormations, type: "normal", is3: true },
+        { name: "3連単", count: 15, forms: sanrentanFormations, type: "normal", is3: true },
+        { name: "🔥 30万オーバー狙い (3連単)", count: 6, forms: highReturnFormations, type: "high", is3: true }
       ];
 
       if (customCount > 0) {
         configs.push({
-          name: `🎯 直感特注馬 [${customHoleInput}番] 押さえ買い目`,
+          name: `🎯 直感特注馬 [${customHoleInput}番] フォーメーション`,
           count: customCount,
-          items: customHoleTickets,
-          type: "custom"
+          forms: customHoleFormations,
+          type: "custom",
+          is3: true
         });
       }
 
@@ -182,12 +197,37 @@
         if (cfg.type === 'custom') boxStyle += ' custom-hole-box';
 
         div.className = boxStyle;
+
+        let formsHTML = '';
+        cfg.forms.forEach(f => {
+          const r1Str = f.r1.join(', ');
+          const r2Str = f.r2.join(', ');
+          
+          if (cfg.is3 && f.r3) {
+            const r3Str = f.r3.join(', ');
+            formsHTML += `
+              <div class="formation-card">
+                <div class="formation-title">${f.title}</div>
+                <div><b>1頭目(1着):</b> [ ${r1Str} ]</div>
+                <div><b>2頭目(2着):</b> [ ${r2Str} ]</div>
+                <div><b>3頭目(3着):</b> [ ${r3Str} ]</div>
+              </div>
+            `;
+          } else {
+            formsHTML += `
+              <div class="formation-card">
+                <div class="formation-title">${f.title}</div>
+                <div><b>1頭目(1着):</b> [ ${r1Str} ]</div>
+                <div><b>2頭目(2着):</b> [ ${r2Str} ]</div>
+              </div>
+            `;
+          }
+        });
+
         div.innerHTML = `
           <h4>${cfg.name} (${cfg.count}点)</h4>
           <div class="unit-info">1点あたり: ${unitStake.toLocaleString()}円 (計 ${(unitStake * cfg.count).toLocaleString()}円)</div>
-          <ul class="ticket-list">
-            ${cfg.items.map(item => `<li>${item}</li>`).join('')}
-          </ul>
+          ${formsHTML}
         `;
         container.appendChild(div);
       });
