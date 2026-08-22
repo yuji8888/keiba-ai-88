@@ -1,421 +1,163 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8">
+  <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#111827">
-  <title>三島優治専用 競馬AI Ver.13 (近5走データ対応版)</title>
+  <title>競馬AI Track Adaptive Engine v6.0</title>
   <style>
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 16px;
-      font-family: sans-serif;
-      background-color: #f3f4f6;
-      color: #1f2937;
-    }
-    header {
-      background: #111827;
-      color: #fff;
-      padding: 16px;
-      border-radius: 8px;
-      margin-bottom: 16px;
-    }
-    header h1 { margin: 0; font-size: 22px; }
-    header p { margin: 4px 0 0 0; font-size: 14px; color: #9ca3af; }
-    main { max-width: 900px; margin: auto; }
-    .card {
-      background: #fff;
-      border-radius: 8px;
-      padding: 16px;
-      margin-bottom: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    h2 { font-size: 18px; margin: 0 0 12px 0; }
-    label { font-size: 13px; color: #475569; display: block; margin-top: 8px; }
-    textarea, select {
-      width: 100%;
-      padding: 8px;
-      border-radius: 6px;
-      border: 1px solid #ccc;
-      margin-top: 4px;
-    }
-    button {
-      width: 100%;
-      border: 0;
-      padding: 12px;
-      border-radius: 6px;
-      font-weight: bold;
-      cursor: pointer;
-    }
-    button.accent { background: #2563eb; color: #fff; font-size: 16px; }
-    .table-wrapper { overflow-x: auto; margin-top: 10px; }
-    table { width: 100%; border-collapse: collapse; min-width: 500px; }
-    th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; font-size: 13px; }
-    th { background: #f8fafc; }
-    .buy-section {
-      margin: 12px 0;
-      padding: 12px;
-      background: #f8fafc;
-      border-radius: 6px;
-      border-left: 4px solid #2563eb;
-    }
-    .buy-title { font-size: 15px; font-weight: bold; margin-bottom: 8px; color: #1e3a8a; }
-    .buy-item { font-size: 14px; font-weight: bold; margin-bottom: 6px; }
-    .buy-item.dark-horse { color: #d97706; }
-    .setting-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-    .condition-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      margin-bottom: 12px;
-    }
-    .condition-box {
-      background: #eff6ff;
-      border: 1px solid #bfdbfe;
-      padding: 12px;
-      border-radius: 6px;
-    }
+    body { font-family: sans-serif; margin: 20px; background-color: #f4f7f6; color: #333; }
+    h1 { color: #2c3e50; }
+    .card { background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); margin-bottom: 20px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    label { font-weight: bold; display: block; margin-top: 10px; }
+    select, textarea, button { width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box; }
+    textarea { height: 150px; font-family: monospace; }
+    button { background-color: #27ae60; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; margin-top: 15px; padding: 12px; }
+    button:hover { background-color: #219150; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+    th { background-color: #34495e; color: white; }
+    .best-buy { background-color: #ffcccc; font-weight: bold; color: #c0392b; }
   </style>
 </head>
 <body>
-  <header>
-    <h1>🐴 三島優治専用 競馬AI Ver.13</h1>
-    <p>騎手・馬場・季節 ＆ 近5走成績自動解析モデル</p>
-  </header>
 
-  <main>
-    <div class="card">
-      <h2>出走馬リスト入力 (1行1頭)</h2>
-      <p style="font-size:12px; color:#6b7280; margin-top:0;">
-        形式例: <code>馬番 馬名 / オッズ / 騎手 / 季節メモ / 近5走着順(ハイフン区切り)</code><br>
-        例: <code>1 オニャンコポン / 13.4倍 / 菅原明 / 夏馬 / 1-2-1-5-3</code>
-      </p>
-      <textarea id="horseList" rows="8" placeholder="1 オニャンコポン / 13.4倍 / 菅原明 / 夏馬 / 1-2-1-5-3&#10;2 イガッチ / 44.3倍 / ルメール / 冬強 / 12-10-8-14-9&#10;3 ピンクジン / 114.3倍 / 武豊 / / 2-1-3-2-1"></textarea>
+  <h1>競馬AI Track Adaptive Engine v6.0</h1>
 
-      <!-- 条件設定（馬場・季節） -->
-      <div class="condition-grid">
-        <div class="condition-box">
-          <label style="margin-top:0; font-weight:bold; color:#1e40af;">🌧️ 馬場状態を選択</label>
-          <select id="trackCondition">
-            <option value="good" selected>良（標準展開）</option>
-            <option value="yielding">稍重（荒れやすさ：小）</option>
-            <option value="soft">重（荒れやすさ：中 / パワー重視）</option>
-            <option value="bad">不良（荒れやすさ：大 / 波乱注意）</option>
-          </select>
-        </div>
-
-        <div class="condition-box">
-          <label style="margin-top:0; font-weight:bold; color:#1e40af;">🌸 開催季節を選択</label>
-          <select id="seasonCondition">
-            <option value="spring">春（3月〜5月）</option>
-            <option value="summer" selected>夏（6月〜8月）</option>
-            <option value="autumn">秋（9月〜11月）</option>
-            <option value="winter">冬（12月〜2月）</option>
-          </select>
-        </div>
+  <div class="card">
+    <h3>レース条件設定</h3>
+    <div class="grid">
+      <div>
+        <label>当日の馬場状態</label>
+        <select id="trackCondition">
+          <option value="good">良 (スピード重視)</option>
+          <option value="yielding">稍重 (標準)</option>
+          <option value="soft">重・不良 (スタミナ・道悪重視)</option>
+        </select>
       </div>
-      
-      <label>▼ 各券種の購入点数設定</label>
-      <div class="setting-grid">
-        <div><label>単勝</label><select id="winCnt"><option value="1">1点</option><option value="2">2点</option><option value="3" selected>3点</option></select></div>
-        <div><label>複勝</label><select id="placeCnt"><option value="1">1点</option><option value="2">2点</option><option value="3" selected>3点</option></select></div>
-        <div><label>枠連</label><select id="bracketCnt"><option value="3" selected>3点</option><option value="5">5点</option></select></div>
-        <div><label>馬連</label><select id="quinellaCnt"><option value="3">3点</option><option value="5" selected>5点</option></select></div>
-        <div><label>ワイド</label><select id="wideCnt"><option value="3">3点</option><option value="5" selected>5点</option></select></div>
-        <div><label>馬単</label><select id="exactaCnt"><option value="3" selected>3点</option><option value="5">5点</option></select></div>
-        <div><label>3連複</label><select id="trioCnt"><option value="5" selected>5点</option><option value="10">10点</option></select></div>
-        <div><label>3連単</label><select id="trifectaCnt"><option value="5">5点</option><option value="10" selected>10点</option></select></div>
-      </div>
-
-      <button class="accent" onclick="calculateAI()">近5走成績も含めてAI計算実行</button>
-    </div>
-
-    <div class="card" id="tableCard" style="display:none;">
-      <h2>出走馬AI分析一覧</h2>
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>馬番</th>
-              <th>馬名</th>
-              <th>騎手</th>
-              <th>近5走データ</th>
-              <th>補正点</th>
-              <th>AI算出指数</th>
-              <th>総合評価点</th>
-              <th>想定オッズ</th>
-            </tr>
-          </thead>
-          <tbody id="horseTableBody"></tbody>
-        </table>
+      <div>
+        <label>枠順傾向（コースバイアス）</label>
+        <select id="gateBias">
+          <option value="none">フラット（補正なし）</option>
+          <option value="inner">内枠有利 (1〜3枠に+4pt)</option>
+          <option value="outer">外枠有利 (6〜8枠に+4pt)</option>
+        </select>
       </div>
     </div>
+  </div>
 
-    <div class="card" id="resultCard" style="display:none;">
-      <h2>全8券種 買い目結果</h2>
+  <div class="card">
+    <h3>出走表データ一括貼り付け</h3>
+    <p style="font-size:12px; color:#666; margin:2px 0;">フォーマット：馬名, 枠, 馬番, 斤量, 近走平均着順, 前走上がり3F, 道悪適性(1/0), 単勝オッズ</p>
+    <textarea id="pasteArea" placeholder="イクイノックス, 1, 1, 58.0, 1.0, 33.1, 0, 1.5&#10;ドウデュース, 3, 5, 58.0, 2.2, 33.5, 1, 3.8&#10;道悪の鬼サンプル, 5, 9, 56.0, 5.5, 34.8, 1, 18.0"></textarea>
+    
+    <button onclick="parseAndAnalyze()">馬場＆オッズ解析・推奨馬抽出</button>
+  </div>
 
-      <div class="buy-section"><div class="buy-title" id="winTitle">■ 単勝</div><div id="winBuy"></div></div>
-      <div class="buy-section"><div class="buy-title" id="placeTitle">■ 複勝</div><div id="placeBuy"></div></div>
-      <div class="buy-section"><div class="buy-title" id="bracketTitle">■ 枠連</div><div id="bracketBuy"></div></div>
-      <div class="buy-section"><div class="buy-title" id="quinellaTitle">■ 馬連</div><div id="quinellaBuy"></div></div>
-      <div class="buy-section"><div class="buy-title" id="wideTitle">■ ワイド</div><div id="wideBuy"></div></div>
-      <div class="buy-section"><div class="buy-title" id="exactaTitle">■ 馬単</div><div id="exactaBuy"></div></div>
-      <div class="buy-section"><div class="buy-title" id="trioTitle">★ 3連複</div><div id="trioBuy"></div></div>
-      <div class="buy-section"><div class="buy-title" id="trifectaTitle">★ 3連単</div><div id="trifectaBuy"></div></div>
-    </div>
-  </main>
+  <div class="card">
+    <h3>解析結果（Valueスコア順）</h3>
+    <table id="resultTable">
+      <thead>
+        <tr>
+          <th>枠</th>
+          <th>馬番</th>
+          <th>馬名</th>
+          <th>斤量</th>
+          <th>道悪</th>
+          <th>AI指数</th>
+          <th>オッズ</th>
+          <th>Valueスコア</th>
+          <th>推奨</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- 解析結果が出力されます -->
+      </tbody>
+    </table>
+  </div>
 
   <script>
-    const jockeyBonusMap = {
-      "ルメール": 10, "川田": 9, "武豊": 8, "横山武": 7, "戸崎": 7,
-      "松山": 6, "坂井": 6, "岩田望": 5, "鮫島駿": 5, "菅原明": 5,
-      "デムーロ": 6, "モレイラ": 10, "レーン": 10
-    };
+    function parseAndAnalyze() {
+      const text = document.getElementById('pasteArea').value.trim();
+      if (!text) return alert('データを入力してください');
 
-    function getJockeyBonus(jockeyName) {
-      if (!jockeyName) return 0;
-      for (let key in jockeyBonusMap) {
-        if (jockeyName.includes(key)) return jockeyBonusMap[key];
-      }
-      return 3;
-    }
+      const lines = text.split('\n');
+      const horses = [];
+      const track = document.getElementById('trackCondition').value;
+      const bias = document.getElementById('gateBias').value;
 
-    function getSeasonBonus(seasonMemo, selectedSeason) {
-      if (!seasonMemo) return 0;
-      const isSummer = selectedSeason === "summer" && (seasonMemo.includes("夏") || seasonMemo.includes("暑"));
-      const isWinter = selectedSeason === "winter" && (seasonMemo.includes("冬") || seasonMemo.includes("寒"));
-      const isSpring = selectedSeason === "spring" && seasonMemo.includes("春");
-      const isAutumn = selectedSeason === "autumn" && seasonMemo.includes("秋");
+      lines.forEach(line => {
+        const cols = line.split(/,|\t/).map(c => c.trim());
+        if (cols.length < 8) return;
 
-      return (isSummer || isWinter || isSpring || isAutumn) ? 6 : 0;
-    }
+        const name = cols[0];
+        const gate = parseInt(cols[1]) || 1;
+        const num = cols[2];
+        const weight = parseFloat(cols[3]) || 57.0;
+        const recentRank = parseFloat(cols[4]) || 8.0;
+        const last3f = parseFloat(cols[5]) || 35.0;
+        const wetAptitude = parseInt(cols[6]) || 0; // 1:得意, 0:普通
+        const odds = parseFloat(cols[7]) || 10.0;
 
-    // 近5走の着順データをパースして自動スコア化する処理
-    function analyzeFiveRaces(pastStr) {
-      if (!pastStr) return { score: 0, avg: "-", display: "データなし" };
+        // --- 馬場状態に応じたロジック切り替え ---
+        let baseScore = 50 - (recentRank * 3.5);
 
-      // 文字列から数値を抽出（ハイフン、カンマ、スラッシュなど対応）
-      const ranks = pastStr.replace(/[^\d,\-\/]/g, "").split(/[\,\-\/]/).map(n => parseInt(n, 10)).filter(n => !isNaN(n));
-      if (ranks.length === 0) return { score: 0, avg: "-", display: pastStr };
+        if (track === 'good') {
+          // 良馬場: スピード(上がり3F)の加点倍率を高くする
+          baseScore += (34.5 - last3f) * 12.0;
+          baseScore += (57.0 - weight) * 2.5;
+          if (wetAptitude === 1) baseScore += 2.0; // わずかなボーナス
+        } 
+        else if (track === 'yielding') {
+          // 稍重: 標準的な計算
+          baseScore += (34.5 - last3f) * 10.0;
+          baseScore += (57.0 - weight) * 3.0;
+          if (wetAptitude === 1) baseScore += 5.0;
+        } 
+        else if (track === 'soft') {
+          // 重・不良: スピード加点を抑え、斤量影響＆道悪適性を超優遇
+          baseScore += (34.5 - last3f) * 6.0;
+          baseScore += (57.0 - weight) * 4.0; // 重馬場ほど斤量苦が効く
+          if (wetAptitude === 1) baseScore += 12.0; // 重馬場適性馬に特大ボーナス！
+        }
 
-      // 平均着順の算出
-      const sum = ranks.reduce((acc, r) => acc + r, 0);
-      const avg = (sum / ranks.length).toFixed(1);
+        // 枠順バイアス補正
+        if (bias === 'inner' && gate <= 3) baseScore += 4.0;
+        else if (bias === 'outer' && gate >= 6) baseScore += 4.0;
 
-      let score = 0;
+        const aiIndex = Math.max(0, Math.round(baseScore * 10) / 10);
+        const valueScore = (aiIndex / odds).toFixed(1);
 
-      // 1. 平均着順による補正
-      if (avg <= 3.0) score += 8;
-      else if (avg <= 5.0) score += 4;
-      else if (avg >= 10.0) score -= 5;
-
-      // 2. 勝利数（1着）と複勝（3着以内）回数のチェック
-      const winCount = ranks.filter(r => r === 1).length;
-      const top3Count = ranks.filter(r => r <= 3).length;
-
-      if (winCount >= 2) score += 5; // 複数回勝利
-      if (top3Count >= 3) score += 5; // 高い複勝率
-
-      // 3. 前走（1番目のデータ）の好調ボーナス
-      if (ranks[0] <= 3) score += 3;
-
-      return {
-        score: score,
-        avg: avg,
-        display: `${ranks.join("-")} (平均 ${avg}着)`
-      };
-    }
-
-    function calculateAI() {
-      const text = document.getElementById("horseList").value.trim();
-      if (!text) return alert("馬名を入力（貼り付け）してください。");
-
-      const lines = text.split("\n").map(l => l.trim()).filter(l => l.length > 0);
-      if (lines.length < 3) return alert("3頭以上の馬名を入力してください。");
-
-      const trackCond = document.getElementById("trackCondition").value;
-      const selectedSeason = document.getElementById("seasonCondition").value;
-
-      let trackHoleFactor = 1.0;
-      if (trackCond === "yielding") trackHoleFactor = 1.2;
-      if (trackCond === "soft") trackHoleFactor = 1.5;
-      if (trackCond === "bad") trackHoleFactor = 1.8;
-
-      const r = lines.map((line, index) => {
-        const parts = line.split("/");
-        
-        const numMatch = line.match(/^(\d+)/);
-        const horseNo = numMatch ? parseInt(numMatch[1], 10) : index + 1;
-
-        const namePart = parts[0].replace(/^[0-9]+\s*/, "").trim();
-        const odds = parts[1] ? parseFloat(parts[1].replace(/[^0-9.]/g, "")) : 10.0;
-        const jockey = parts[2] ? parts[2].trim() : "未設定";
-        const seasonMemo = parts[3] ? parts[3].trim() : "";
-        const pastMemo = parts[4] ? parts[4].trim() : "";
-
-        const jBonus = getJockeyBonus(jockey);
-        const sBonus = getSeasonBonus(seasonMemo, selectedSeason);
-        const fiveRaceData = analyzeFiveRaces(pastMemo);
-
-        let oddsBaseScore = Math.max(10, Math.min(85, 95 - (Math.sqrt(odds) * 8)));
-        let autoAiIndex = Math.round(oddsBaseScore + jBonus + sBonus + fiveRaceData.score);
-
-        const holeBonus = trackHoleFactor > 1.0 ? Math.log10(odds + 1) * (trackHoleFactor * 3) : 0;
-        const adjustedScore = autoAiIndex + holeBonus;
-
-        return {
-          no: horseNo,
-          frame: Math.min(8, Math.max(1, Math.ceil(horseNo / (lines.length / 8 || 2)))),
-          name: namePart,
-          jockey: jockey,
-          seasonBonus: sBonus,
-          pastData: fiveRaceData,
-          aiIndex: autoAiIndex,
-          baseScore: adjustedScore,
-          odds: odds
-        };
+        horses.push({ name, gate, num, weight, wetAptitude, aiIndex, odds, valueScore });
       });
 
-      let tableHTML = "";
-      [...r].sort((a,b) => a.no - b.no).forEach(m => {
-        const totalBonus = m.seasonBonus + m.pastData.score;
-        const bonusBadge = totalBonus !== 0 ? `<span style="color:${totalBonus > 0 ? '#d97706' : '#dc2626'}; font-weight:bold;">${totalBonus > 0 ? '+' : ''}${totalBonus}pt</span>` : "0pt";
-        
-        tableHTML += `<tr><td>${m.no}</td><td><b>${m.name}</b></td><td>${m.jockey}</td><td><span style="font-size:11px; color:#4b5563;">${m.pastData.display}</span></td><td>${bonusBadge}</td><td><b style="color:#2563eb;">${m.aiIndex} pt</b></td><td>${m.baseScore.toFixed(1)} pt</td><td>${m.odds} 倍</td></tr>`;
+      // Valueスコア順にソート
+      horses.sort((a, b) => b.valueScore - a.valueScore);
+
+      renderTable(horses);
+    }
+
+    function renderTable(horses) {
+      const tbody = document.querySelector('#resultTable tbody');
+      tbody.innerHTML = '';
+
+      horses.forEach((h, index) => {
+        const tr = document.createElement('tr');
+        if (index === 0) tr.className = 'best-buy';
+
+        tr.innerHTML = `
+          <td>${h.gate}枠</td>
+          <td>${h.num}</td>
+          <td>${h.name}</td>
+          <td>${h.weight}kg</td>
+          <td>${h.wetAptitude === 1 ? '◎ 得意' : '-'}</td>
+          <td>${h.aiIndex}</td>
+          <td>${h.odds}倍</td>
+          <td>${h.valueScore}</td>
+          <td>${index === 0 ? '★大本命穴馬' : (index === 1 ? '○ 期待大' : '-')}</td>
+        `;
+        tbody.appendChild(tr);
       });
-      document.getElementById("horseTableBody").innerHTML = tableHTML;
-      document.getElementById("tableCard").style.display = "block";
-
-      const getLimit = id => parseInt(document.getElementById(id).value);
-
-      function blendBuyList(solidList, holeList, limit) {
-        let result = [];
-        let solidCount = limit > 3 ? limit - 2 : limit - 1;
-        if (solidCount < 1) solidCount = 1;
-
-        result = solidList.slice(0, solidCount);
-
-        for(let item of holeList) {
-          if (result.length >= limit) break;
-          const isExist = result.some(r => JSON.stringify(r.key) === JSON.stringify(item.key));
-          if (!isExist) {
-            item.isHole = true;
-            result.push(item);
-          }
-        }
-        return result;
-      }
-
-      // 1. 単勝
-      let winSolid = [...r].sort((a,b) => b.baseScore - a.baseScore).map(m => ({ text: `${m.no} (${m.name} / ${m.jockey})`, key: m.no }));
-      let winHole = [...r].sort((a,b) => (Math.log10(b.odds + 1) * b.baseScore * trackHoleFactor) - (Math.log10(a.odds + 1) * a.baseScore)).map(m => ({ text: `${m.no} (${m.name} / ${m.jockey}) 🔥[AI穴推奨]`, key: m.no }));
-      let wins = blendBuyList(winSolid, winHole, getLimit("winCnt"));
-      document.getElementById("winTitle").innerText = `■ 単勝 (${wins.length}点)`;
-      document.getElementById("winBuy").innerHTML = wins.map((m,i)=>`<div class="buy-item ${m.isHole?'dark-horse':''}">${i+1}. ${m.text}</div>`).join("");
-
-      // 2. 複勝
-      let places = blendBuyList(winSolid, winHole, getLimit("placeCnt"));
-      document.getElementById("placeTitle").innerText = `■ 複勝 (${places.length}点)`;
-      document.getElementById("placeBuy").innerHTML = places.map((m,i)=>`<div class="buy-item ${m.isHole?'dark-horse':''}">${i+1}. ${m.text}</div>`).join("");
-
-      // 3. 馬連
-      let qSolid = [], qHole = [];
-      for(let i=0; i<r.length-1; i++){
-        for(let j=i+1; j<r.length; j++){
-          const key = [r[i].no, r[j].no].sort((a,b)=>a-b).join("-");
-          const nameStr = `${r[i].no} (${r[i].name}) - ${r[j].no} (${r[j].name})`;
-          qSolid.push({ key: key, text: nameStr, score: r[i].baseScore + r[j].baseScore });
-          qHole.push({ key: key, text: nameStr + " 🔥[AI穴推奨]", score: (r[i].baseScore + r[j].baseScore) * Math.log10(r[i].odds + r[j].odds) * trackHoleFactor });
-        }
-      }
-      qSolid.sort((a,b) => b.score - a.score);
-      qHole.sort((a,b) => b.score - a.score);
-      let quinellas = blendBuyList(qSolid, qHole, getLimit("quinellaCnt"));
-      document.getElementById("quinellaTitle").innerText = `■ 馬連 (${quinellas.length}点)`;
-      document.getElementById("quinellaBuy").innerHTML = quinellas.map((m,i)=>`<div class="buy-item ${m.isHole?'dark-horse':''}">${i+1}. ${m.text}</div>`).join("");
-
-      // 4. ワイド
-      let wides = blendBuyList(qSolid, qHole, getLimit("wideCnt"));
-      document.getElementById("wideTitle").innerText = `■ ワイド (${wides.length}点)`;
-      document.getElementById("wideBuy").innerHTML = wides.map((m,i)=>`<div class="buy-item ${m.isHole?'dark-horse':''}">${i+1}. ${m.text}</div>`).join("");
-
-      // 5. 枠連
-      let bSolid = [];
-      for(let i=0; i<r.length-1; i++){
-        for(let j=i+1; j<r.length; j++){
-          if(r[i].frame !== r[j].frame){
-            bSolid.push({ key: `${r[i].frame}-${r[j].frame}`, text: `${r[i].frame} - ${r[j].frame} 枠`, score: r[i].baseScore + r[j].baseScore });
-          }
-        }
-      }
-      bSolid.sort((a,b) => b.score - a.score);
-      let topBrackets = bSolid.slice(0, getLimit("bracketCnt"));
-      document.getElementById("bracketTitle").innerText = `■ 枠連 (${topBrackets.length}点)`;
-      document.getElementById("bracketBuy").innerHTML = topBrackets.map((m,i)=>`<div class="buy-item">${i+1}. ${m.text}</div>`).join("");
-
-      // 6. 馬単
-      let exSolid = [], exHole = [];
-      for(let i=0; i<r.length; i++){
-        for(let j=0; j<r.length; j++){
-          if(i === j) continue;
-          const key = `${r[i].no}->${r[j].no}`;
-          const nameStr = `${r[i].no} (${r[i].name}) → ${r[j].no} (${r[j].name})`;
-          exSolid.push({ key: key, text: nameStr, score: (r[i].baseScore * 1.5) + r[j].baseScore });
-          exHole.push({ key: key, text: nameStr + " 🔥[AI穴推奨]", score: ((r[i].baseScore * 1.5) + r[j].baseScore) * Math.log10(r[j].odds + 1) * trackHoleFactor });
-        }
-      }
-      exSolid.sort((a,b) => b.score - a.score);
-      exHole.sort((a,b) => b.score - a.score);
-      let exactas = blendBuyList(exSolid, exHole, getLimit("exactaCnt"));
-      document.getElementById("exactaTitle").innerText = `■ 馬単 (${exactas.length}点)`;
-      document.getElementById("exactaBuy").innerHTML = exactas.map((m,i)=>`<div class="buy-item ${m.isHole?'dark-horse':''}">${i+1}. ${m.text}</div>`).join("");
-
-      // 7. 3連複
-      let tSolid = [], tHole = [];
-      for(let i=0; i<r.length-2; i++){
-        for(let j=i+1; j<r.length-1; j++){
-          for(let k=j+1; k<r.length; k++){
-            const key = [r[i].no, r[j].no, r[k].no].sort((a,b)=>a-b).join("-");
-            const nameStr = `${r[i].no}-${r[j].no}-${r[k].no} (${r[i].name}, ${r[j].name}, ${r[k].name})`;
-            const baseSum = r[i].baseScore + r[j].baseScore + r[k].baseScore;
-            tSolid.push({ key: key, text: nameStr, score: baseSum });
-            tHole.push({ key: key, text: nameStr + " 🔥[AI穴推奨]", score: baseSum * Math.log10(r[i].odds + r[j].odds + r[k].odds) * trackHoleFactor });
-          }
-        }
-      }
-      tSolid.sort((a,b) => b.score - a.score);
-      tHole.sort((a,b) => b.score - a.score);
-      let trios = blendBuyList(tSolid, tHole, getLimit("trioCnt"));
-      document.getElementById("trioTitle").innerText = `★ 3連複 (${trios.length}点)`;
-      document.getElementById("trioBuy").innerHTML = trios.map((m,i)=>`<div class="buy-item ${m.isHole?'dark-horse':''}">${i+1}. ${m.text}</div>`).join("");
-
-      // 8. 3連単
-      let triFectSolid = [], triFectHole = [];
-      for(let i=0; i<r.length; i++){
-        for(let j=0; j<r.length; j++){
-          for(let k=0; k<r.length; k++){
-            if(i === j || j === k || i === k) continue;
-            const key = `${r[i].no}->${r[j].no}->${r[k].no}`;
-            const nameStr = `${r[i].no} → ${r[j].no} → ${r[k].no} (${r[i].name}, ${r[j].name}, ${r[k].name})`;
-            const baseSum = (r[i].baseScore * 2.0) + (r[j].baseScore * 1.3) + r[k].baseScore;
-            triFectSolid.push({ key: key, text: nameStr, score: baseSum });
-            triFectHole.push({ key: key, text: nameStr + " 🔥[AI穴推奨]", score: baseSum * Math.log10(r[j].odds + r[k].odds + 1) * trackHoleFactor });
-          }
-        }
-      }
-      triFectSolid.sort((a,b) => b.score - a.score);
-      triFectHole.sort((a,b) => b.score - a.score);
-      let trifectas = blendBuyList(triFectSolid, triFectHole, getLimit("trifectaCnt"));
-      document.getElementById("trifectaTitle").innerText = `★ 3連単 (${trifectas.length}点)`;
-      document.getElementById("trifectaBuy").innerHTML = trifectas.map((m,i)=>`<div class="buy-item ${m.isHole?'dark-horse':''}">${i+1}. ${m.text}</div>`).join("");
-
-      document.getElementById("resultCard").style.display = "block";
     }
   </script>
 </body>
